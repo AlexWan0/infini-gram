@@ -3,9 +3,9 @@ This repo contains an (unofficial) Python implementation of the infini-gram mode
 
 ## Implementation TODOs
 * Parallelism during inference is annoying because the suffix array and corpora should be shared between multiple processes
-* Add caching
+* Fix caching
 * Inference that backsoff for arbitrary cutoffs (to avoid sparse predictions)
-* I *think* the original implementation gets the full distribution during inference by running `V` forward passes (i.e., `m = V`). For my implementation, I iterate through all matching substrings in order to build the distribution. This seemed to be faster on my smaller dataset (when there aren't that many matches compared the the vocab size), but I haven't tested it too comprehensively. Maybe I can try switching dynamically between the two.
+* I *think* the original implementation gets the full distribution during inference by running `|V|` forward passes. For my implementation, I iterate through all matching substrings in order to build the distribution. This seemed to be faster on my smaller dataset (when there aren't that many matches compared the the vocab size), but I haven't tested it too comprehensively. Maybe I can try switching dynamically between the two.
 
 ## Usage
 Training:
