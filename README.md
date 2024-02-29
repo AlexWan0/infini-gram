@@ -20,7 +20,7 @@ Generation:
 ```python
 from infinigram import InfiniGramModel
 
-model = InfiniGramModel.from_pretrained(args.model)
+model = InfiniGramModel.from_pretrained(args.model_dir)
 
 gen_output = model.greedy_next(
     input_ids,
@@ -29,3 +29,6 @@ gen_output = model.greedy_next(
 ```
 
 Other methods: `prob_next_distr` predicts the full distribution of the next token. `get_longest_matching_next` finds the longest matching substring, plus one extra token.
+
+## Prebuilt indices
+[~860M token pile-val w/ openai-community/gpt2 tokenizer](https://drive.google.com/drive/folders/11WLVso4tMiqUrnERfYGbhl5wCy8WqKsH?usp=sharing) -- 4.6gb total
