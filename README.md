@@ -28,3 +28,5 @@ gen_output = model.greedy_next(
     verbose=False
 )
 ```
+
+Other methods: `prob_next_distr` predicts the full distribution of the next token. `get_longest_matching_next` finds the longest matching substring, plus one extra token.
