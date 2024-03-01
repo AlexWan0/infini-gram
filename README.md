@@ -31,5 +31,4 @@ gen_output = model.greedy_next(
 Other methods: `prob_next_distr` predicts the full distribution of the next token. `get_longest_matching_next` finds the longest matching substring, plus one extra token.
 
 ## Prebuilt indices
-[~860M token pile-val w/ openai-community/gpt2 tokenizer](https://drive.google.com/drive/folders/11WLVso4tMiqUrnERfYGbhl5wCy8WqKsH?usp=sharing) -- 4.6gb total
-Note: the predictions on this model don't seem to exactly match up with their [demo](https://huggingface.co/spaces/liujch1998/infini-gram). I think this is due to different gpt-2 tokenizers that we're using (e.g., I don't see a significant discrepancy when using the Llama-2 tokenizer).
+[~860M token pile-val w/ openai-community/gpt2 tokenizer](https://drive.google.com/drive/folders/11WLVso4tMiqUrnERfYGbhl5wCy8WqKsH?usp=sharing) -- 4.6gb total <sub>(Note: the predictions on this model don't seem to exactly match up with their [demo](https://huggingface.co/spaces/liujch1998/infini-gram). I think this is due to different gpt-2 tokenizers that we're using (e.g., I don't see a significant discrepancy when using the Llama-2 tokenizer).)</sub>
