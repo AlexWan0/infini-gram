@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"encoding/binary"
-	// "io"
+	"bufio"
 	"os"
 )
 
@@ -71,4 +71,35 @@ func ReadInt64FromFile(filename string) ([]int64, error) {
 		return nil, err
 	}
 	return int64s, nil
+}
+
+func make_folder(folder_path string) error {
+	info, err := os.Stat(folder_path)
+	if err == nil {
+		if info.IsDir() {
+			return nil
+		}
+	}
+	
+	err = os.Mkdir(folder_path, 0755)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func num_lines(filename string) (int, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	lines := 0
+	for scanner.Scan() {
+		lines++
+	}
+	return lines, scanner.Err()
 }

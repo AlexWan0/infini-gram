@@ -3,14 +3,73 @@ package main
 import (
 	"github.com/sugarme/tokenizer"
 	"github.com/sugarme/tokenizer/pretrained"
-	// "fmt"
 	"github.com/schollz/progressbar/v3"
 	"os"
 	"bufio"
 	"sync"
 	"path"
-	// "errors"
+	"strings"
 )
+
+
+func is_all_whitespace(line string) bool {
+	return strings.TrimSpace(line) == ""
+}
+
+func tokenize(filename string, tk *tokenizer.Tokenizer, sentinal_val, sentinal_size int) ([]byte, error) {
+	// counts lines for progress bar
+	file_num_lines, err := num_lines(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	// read file
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	bar := progressbar.Default(int64(file_num_lines))
+
+	// target
+	data_bytes := make([]byte, 0)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		bar.Add(1)
+
+		line := scanner.Text()
+
+		if is_all_whitespace(line) {
+			continue
+		}
+
+		// tokenize
+		en, err := tk.EncodeSingle(line)
+		if err != nil {
+			return nil, err
+		}
+
+		start_idx := len(data_bytes)
+		end_idx := len(data_bytes) + (len(en.Ids) + sentinal_size) * 2
+
+		// allocate space on this array first, maybe not the best way to do this
+		for i := 0; i < (end_idx - start_idx); i++ {
+			data_bytes = append(data_bytes, 0)
+		}
+		
+		// bytes are placed in the slice for this particular document
+		encode_sequence(data_bytes[start_idx : end_idx], en.Ids, sentinal_val, sentinal_size)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return data_bytes, nil
+}
+
 
 func init_tokenizer(tokenizer_config string) (*tokenizer.Tokenizer, error) {
 	tk, err := pretrained.FromFile(tokenizer_config)

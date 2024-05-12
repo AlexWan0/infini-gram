@@ -8,165 +8,15 @@ import (
 	"strings"
 	"flag"
 
-	"github.com/sugarme/tokenizer"
 	"github.com/sugarme/tokenizer/pretrained"
-	"github.com/schollz/progressbar/v3"
 )
 
 type ModelData struct {
 	suffix_array []int64
 	bytes_data []byte
+	vocab_size int
 }
 
-func make_folder(folder_path string) error {
-	info, err := os.Stat(folder_path)
-	if err == nil {
-		if info.IsDir() {
-			return nil
-		}
-	}
-	
-	err = os.Mkdir(folder_path, 0755)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// func (m *ModelData) SaveSuffixArray(folderPath string) error {
-//     err := make_folder(folderPath)
-//     if err != nil {
-//         return err
-//     }
-
-//     saPath := path.Join(folderPath, "suffix_array.bin")
-//     fmt.Println("Saving suffix array")
-//     err = WriteToFile(saPath, m.suffix_array)
-//     if err != nil {
-//         return err
-//     }
-
-//     return nil
-// }
-
-// func (m *ModelData) SaveTokenizedData(folderPath string) error {
-//     err := make_folder(folderPath)
-//     if err != nil {
-//         return err
-//     }
-
-//     dataPath := path.Join(folderPath, "data.bin")
-//     fmt.Println("Saving tokenized data")
-//     err = WriteToFile(dataPath, m.bytes_data)
-//     if err != nil {
-//         return err
-//     }
-
-//     return nil
-// }
-
-func Load(folder_path string) (*ModelData, error) {
-	sa_path := path.Join(folder_path, "suffix_array.bin")
-	data_path := path.Join(folder_path, "data.bin")
-
-	suffix_array, err := ReadInt64FromFile(sa_path)
-	if err != nil {
-		return nil, err
-	}
-
-	data_bytes, err_2 := ReadBytesFromFile(data_path)
-	if err_2 != nil {
-		return nil, err_2
-	}
-
-	return &ModelData{suffix_array: suffix_array, bytes_data: data_bytes}, nil
-}
-
-
-func is_all_whitespace(line string) bool {
-	return strings.TrimSpace(line) == ""
-}
-
-func num_lines(filename string) (int, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return 0, err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	lines := 0
-	for scanner.Scan() {
-		lines++
-	}
-	return lines, scanner.Err()
-}
-
-func read_and_tokenize(filename string, tk *tokenizer.Tokenizer, sentinal_val int, sentinal_size int) ([]byte, error) {
-	// counts lines for progress bar
-	file_num_lines, err := num_lines(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	// read file
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	bar := progressbar.Default(int64(file_num_lines))
-
-	// target
-	data_bytes := make([]byte, 0)
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		bar.Add(1)
-
-		line := scanner.Text()
-
-		if is_all_whitespace(line) {
-			continue
-		}
-
-		// tokenize
-		en, err := tk.EncodeSingle(line)
-		if err != nil {
-			return nil, err
-		}
-
-		start_idx := len(data_bytes)
-		end_idx := len(data_bytes) + (len(en.Ids) + sentinal_size) * 2
-
-		// allocate space on this array first, maybe not the best way to do this
-		for i := 0; i < (end_idx - start_idx); i++ {
-			data_bytes = append(data_bytes, 0)
-		}
-		
-		// bytes are placed in the slice for this particular document
-		encode_sequence(data_bytes[start_idx : end_idx], en.Ids, sentinal_val, sentinal_size)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return data_bytes, nil
-}
-
-// func TrainFromPath(filename string, tk *tokenizer.Tokenizer, sentinal_val int, sentinal_size int) (*ModelData, error) {
-// 	data_bytes, err := read_and_tokenize(filename, tk, sentinal_val, sentinal_size)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	suffix_array := create_suffix_array(data_bytes)
-
-// 	return &ModelData{suffix_array: suffix_array, bytes_data: data_bytes}, nil
-// }
 
 type Prediction struct {
 	distribution []float32
@@ -176,7 +26,8 @@ type Prediction struct {
 	retrieved_suffixes [][]int
 }
 
-func (m *ModelData) next_token_distribution(query_ids []int, vocab_size int, num_extend int) *Prediction {
+func (m *ModelData) next_token_distribution(query_ids []int, num_extend int) *Prediction {
+	vocab_size := m.vocab_size
 	suffix_array := m.suffix_array
 	data_bytes := m.bytes_data
 
@@ -288,31 +139,7 @@ func main() {
 		}
 	}
 	
-	model_data := ModelData{suffix_array: suffix_array, bytes_data: data_bytes}
-
-	// // make model
-	// model_data, err := TrainFromPath(filename, tk, sentinal_val, sentinal_size)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	
-	// // save to disk
-	// err = model_data.Save(outpath)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Println("Succesfully saved to %s", outpath)
-
-	// test loading
-	// model_data_2, err := Load(outpath)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// fmt.Println(compare_slices(model_data.bytes_data, model_data_2.bytes_data))
-	// fmt.Println(compare_slices_int64(model_data.suffix_array, model_data_2.suffix_array))
-
-	// fmt.Println(suffix_array)
+	model_data := ModelData{suffix_array: suffix_array, bytes_data: data_bytes, vocab_size: tk.GetVocabSize(true)}
 
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -332,7 +159,7 @@ func main() {
 			panic(err)
 		}
 
-		prediction := model_data.next_token_distribution(en.Ids, tk.GetVocabSize(true), 1)
+		prediction := model_data.next_token_distribution(en.Ids, 1)
 
 		if prediction.num_retrieved == 0 {
 			fmt.Println("No continuations found")
