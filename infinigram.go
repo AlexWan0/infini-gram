@@ -104,6 +104,27 @@ func (m *ModelData) generate_greedy(query_ids []int, num_new_tokens int) []int {
 	return result
 }
 
+func (m *ModelData) generate_greedy_stream(query_ids []int, num_new_tokens int, generated_tokens chan<- []int) {
+	defer close(generated_tokens)
+
+	result := make([]int, 0, len(query_ids) + num_new_tokens)
+	result = append(result, query_ids...)
+	
+	for i := 0; i < num_new_tokens; i++ {
+		prediction := m.next_token_distribution(result, 1)
+
+		if prediction.num_retrieved == 0 {
+			return
+		}
+
+		new_token := argmax(prediction.distribution)
+		result = append(result, new_token)
+
+		generated_tokens <- result
+	}
+}
+
+
 func init_model(filename, outpath, tokenizer_config string, sentinal_val, sentinal_size, n_workers, vocab_size int) (*ModelData, error) {
 	// check whether tokenized data already exists
 	data_path := path.Join(outpath, "data.bin")
@@ -187,9 +208,13 @@ func interactive_next_token(query_ids []int, model_data *ModelData, tk *tokenize
 }
 
 func interactive_generate_greedy(query_ids []int, model_data *ModelData, tk *tokenizer.Tokenizer, num_new_tokens int) {
-	full_generation := model_data.generate_greedy(query_ids, num_new_tokens)
-	
-	fmt.Println(">", tk.Decode(full_generation, true))
+	generated_tokens := make(chan []int, 8)
+
+	go model_data.generate_greedy_stream(query_ids, num_new_tokens, generated_tokens)
+
+	for tkns := range generated_tokens {
+		fmt.Printf("====\n%s\n", tk.Decode(tkns, true))
+	}
 }
 
 func main() {
