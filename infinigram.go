@@ -8,6 +8,7 @@ import (
 	"strings"
 	"flag"
 
+	"github.com/sugarme/tokenizer"
 	"github.com/sugarme/tokenizer/pretrained"
 )
 
@@ -69,6 +70,63 @@ func (m *ModelData) next_token_distribution(query_ids []int, num_extend int) *Pr
 	return &Prediction{nil, -1, 0, num_extend, make([][]int, 0)}
 }
 
+func (m *ModelData) generate_greedy(query_ids []int, num_new_tokens int) []int {
+	result := make([]int, 0, len(query_ids) + num_new_tokens)
+	result = append(result, query_ids...)
+	
+	for i := 0; i < num_new_tokens; i++ {
+		prediction := m.next_token_distribution(result, 1)
+
+		if prediction.num_retrieved == 0 {
+			return result
+		}
+
+		new_token := argmax(prediction.distribution)
+		result = append(result, new_token)
+	}
+
+	return result
+}
+
+func interactive_next_token(query_ids []int, model_data *ModelData, tk *tokenizer.Tokenizer, top_k int) {
+	prediction := model_data.next_token_distribution(query_ids, 1)
+
+	if prediction.num_retrieved == 0 {
+		fmt.Println("No continuations found")
+		return
+	}
+
+	top_indices := argsort(prediction.distribution, true)
+	if len(top_indices) > top_k{
+		top_indices = top_indices[:top_k]
+	}
+
+	full_generation := append([]int{}, query_ids...)
+	full_generation = append(full_generation, 0)
+	for i, tkn_idx := range top_indices {
+		prob := prediction.distribution[tkn_idx]
+
+		full_generation[len(full_generation) - 1] = tkn_idx
+
+		total := prediction.num_retrieved
+		fmt.Printf(
+			"n=%d, p=%.3f (%d/%d), k=%d: %s\n",
+			prediction.effective_n,
+			prob,
+			int(prob * float32(total)),
+			total,
+			i,
+			tk.Decode(full_generation, true),
+		)
+	}
+}
+
+func interactive_generate_greedy(query_ids []int, model_data *ModelData, tk *tokenizer.Tokenizer, num_new_tokens int) {
+	full_generation := model_data.generate_greedy(query_ids, num_new_tokens)
+	
+	fmt.Println(">", tk.Decode(full_generation, true))
+}
+
 func main() {
 	var _ = fmt.Printf
 
@@ -80,6 +138,8 @@ func main() {
 		sentinal_val int
 		sentinal_size int
 		top_k int
+		interactive_mode int
+		num_generate int
 	)
 	
 	flag.StringVar(&filename, "train_file", "", "Path to training data")
@@ -88,7 +148,10 @@ func main() {
 	flag.StringVar(&tokenizer_config, "tokenizer_config", "tokenizer_gpt2.json", "Path to .json file containing tokenizer configuration")
 	flag.IntVar(&sentinal_val, "sentinal_val", 0, "Value to add at the end of every document")
 	flag.IntVar(&sentinal_size, "sentinal_size", 2, "Number of sentinals to add at the end of every document")
-	flag.IntVar(&top_k, "top_k", 8, "Number of most frequent continuations to print during interactive mode")
+	
+	flag.IntVar(&interactive_mode, "interactive_mode", 0, "0: print the top-k best next-token continuations 1: greedily generate k tokens")
+	flag.IntVar(&top_k, "top_k", 8, "Number of most frequent continuations to print during interactive mode 0")
+	flag.IntVar(&num_generate, "num_generate", 32, "Number of new tokens to generate")
 
 	flag.Parse()
 
@@ -159,35 +222,10 @@ func main() {
 			panic(err)
 		}
 
-		prediction := model_data.next_token_distribution(en.Ids, 1)
-
-		if prediction.num_retrieved == 0 {
-			fmt.Println("No continuations found")
-			continue
-		}
-
-		top_indices := argsort(prediction.distribution, true)
-		if len(top_indices) > top_k{
-			top_indices = top_indices[:top_k]
-		}
-
-		full_generation := append([]int{}, en.Ids...)
-		full_generation = append(full_generation, 0)
-		for i, tkn_idx := range top_indices {
-			prob := prediction.distribution[tkn_idx]
-
-			full_generation[len(full_generation) - 1] = tkn_idx
-
-			total := prediction.num_retrieved
-			fmt.Printf(
-				"n=%d, p=%.3f (%d/%d), k=%d: %s\n",
-				prediction.effective_n,
-				prob,
-				int(prob * float32(total)),
-				total,
-				i,
-				tk.Decode(full_generation, true),
-			)
+		if interactive_mode == 0 {
+			interactive_next_token(en.Ids, &model_data, tk, top_k)
+		} else if interactive_mode == 1 {
+			interactive_generate_greedy(en.Ids, &model_data, tk, num_generate)
 		}
 
 		// for _, next_ids := range prediction.retrieved_suffixes {

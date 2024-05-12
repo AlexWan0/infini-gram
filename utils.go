@@ -103,3 +103,15 @@ func argsort(vec []float32, descending bool) []int {
 	
 	return indices
 }
+
+func argmax(vec []float32) int {
+	max_val := vec[0]
+	max_idx := 0
+	for i, val := range vec {
+		if val > max_val {
+			max_val = val
+			max_idx = i
+		}
+	}
+	return max_idx
+}
