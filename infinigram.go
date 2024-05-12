@@ -235,10 +235,11 @@ func main() {
 		n_workers,
 		tk.GetVocabSize(true),
 	)
-	model_data := *model_data_p
 	if err != nil {
 		panic(err)
 	}
+	
+	model_data := *model_data_p
 	
 	reader := bufio.NewReader(os.Stdin)
 	for {
