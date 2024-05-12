@@ -46,9 +46,9 @@ func (m *ModelData) next_token_distribution(query_ids []int, num_extend int) *Pr
 		query_suffix_enc := int_to_byte(query_ids_suffix)
 
 		// check if, at this length, we get any matches
-		first_occ, last_occ := binary_search(suffix_array, data_bytes, query_suffix_enc)
+		num_matches := retrieve_num(suffix_array, data_bytes, query_suffix_enc)
 
-		if (first_occ != -1) && (last_occ != -1) {
+		if num_matches > 0 {
 			best_query_enc = query_suffix_enc
 			left = mid + 1
 		} else {

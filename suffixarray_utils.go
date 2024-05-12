@@ -77,6 +77,25 @@ func retrieve(suffix_array []int64, vec []byte, query []byte) []int64 {
 	return suffix_starts
 }
 
+func retrieve_num(suffix_array []int64, vec []byte, query []byte) int {
+	start_idx, end_idx := binary_search(suffix_array, vec, query)
+
+	if (start_idx == -1) && (end_idx == -1) {
+		return 0
+	}
+
+	num := 0
+
+	for s := start_idx; s <= end_idx; s++ {
+		start_pos := suffix_array[s]
+		if start_pos % 2 == 0 {
+			num += 1
+		}
+	}
+
+	return num
+}
+
 func retrieve_substrings(suffix_array []int64, vec []byte, query []byte, extend int64) [][]byte {
 	suffix_starts := retrieve(suffix_array, vec, query)
 
