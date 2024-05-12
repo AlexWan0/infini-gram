@@ -1,8 +1,0 @@
-scipy
-transformers
-tqdm
-numpy
-pydivsufsort
-joblib
-nltk
-ansicolors
