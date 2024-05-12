@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"flag"
-	// "encoding/binary"
 
 	"github.com/sugarme/tokenizer"
 	"github.com/sugarme/tokenizer/pretrained"
