@@ -32,42 +32,58 @@ func (m *ModelData) next_token_distribution(query_ids []int, num_extend int) *Pr
 	suffix_array := m.suffix_array
 	data_bytes := m.bytes_data
 
-	for query_start := 0; query_start < len(query_ids); query_start++ {
-		query_ids_suffix := query_ids[query_start:]
+	// perform binary search to find longest suffix
+	left := 0
+	right := len(query_ids)
+
+	var best_query_enc []byte
+
+	for left <= right {
+		// the current candidate for the longest suffix length
+		mid := left + (right - left) / 2
+		query_ids_suffix := query_ids[len(query_ids) - mid:]
 
 		query_suffix_enc := int_to_byte(query_ids_suffix)
 
-		substrings := retrieve_substrings(suffix_array, data_bytes, query_suffix_enc, int64(num_extend))
+		// check if, at this length, we get any matches
+		first_occ, last_occ := binary_search(suffix_array, data_bytes, query_suffix_enc)
 
-		if len(substrings) == 0 {
-			continue
+		if (first_occ != -1) && (last_occ != -1) {
+			best_query_enc = query_suffix_enc
+			left = mid + 1
+		} else {
+			right = mid - 1
 		}
-
-		raw_suffixes := make([][]int, len(substrings))
-		distr := make([]float32, vocab_size)
-		total := 0
-		for i, s := range substrings {
-			retrieved_suffix := byte_to_int(s)
-			
-			new_ids := retrieved_suffix[len(retrieved_suffix) - num_extend:]
-			new_ids = append([]int{}, new_ids...)
-			
-			// add to raw retrievals
-			raw_suffixes[i] = new_ids
-
-			// populate distribution
-			distr[new_ids[0]] += 1
-			total += 1
-		}
-
-		for i, _ := range distr {
-			distr[i] /= float32(total)
-		}
-
-		return &Prediction{distr, len(query_ids_suffix), total, num_extend, raw_suffixes}
 	}
 
-	return &Prediction{nil, -1, 0, num_extend, make([][]int, 0)}
+	if best_query_enc == nil {
+		return &Prediction{nil, -1, 0, num_extend, make([][]int, 0)}
+	}
+
+	substrings := retrieve_substrings(suffix_array, data_bytes, best_query_enc, int64(num_extend))
+
+	raw_suffixes := make([][]int, len(substrings))
+	distr := make([]float32, vocab_size)
+	total := 0
+	for i, s := range substrings {
+		retrieved_suffix := byte_to_int(s)
+		
+		new_ids := retrieved_suffix[len(retrieved_suffix) - num_extend:]
+		new_ids = append([]int{}, new_ids...)
+		
+		// add to raw retrievals
+		raw_suffixes[i] = new_ids
+
+		// populate distribution
+		distr[new_ids[0]] += 1
+		total += 1
+	}
+
+	for i, _ := range distr {
+		distr[i] /= float32(total)
+	}
+
+	return &Prediction{distr, len(best_query_enc) / 2, total, num_extend, raw_suffixes}	
 }
 
 func (m *ModelData) generate_greedy(query_ids []int, num_new_tokens int) []int {
