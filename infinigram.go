@@ -88,6 +88,55 @@ func (m *ModelData) generate_greedy(query_ids []int, num_new_tokens int) []int {
 	return result
 }
 
+func init_model(filename, outpath, tokenizer_config string, sentinal_val, sentinal_size, n_workers, vocab_size int) (*ModelData, error) {
+	// check whether tokenized data already exists
+	data_path := path.Join(outpath, "data.bin")
+	_, err := os.Stat(data_path)
+	if err != nil {
+		// tokenize data: streams documents from text file into binary file
+		fmt.Println("Tokenizing data to disk")
+		_, err := tokenize_multiprocess(filename, outpath, tokenizer_config, sentinal_val, sentinal_size, n_workers)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fmt.Println("Tokenized data already found")
+	}
+
+	// load *entire* binary file into memory
+	data_bytes, err := ReadBytesFromFile(data_path)
+	if err != nil {
+		return nil, err
+	}
+
+	// load suffix array
+	sa_path := path.Join(outpath, "suffix_array.bin")
+	_, err = os.Stat(sa_path)
+	var suffix_array []int64
+	if err != nil {
+		fmt.Println("Building suffix array")
+		suffix_array = create_suffix_array(data_bytes)
+
+		fmt.Println("Saving suffix array to disk")
+		err = WriteToFile(sa_path, suffix_array)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fmt.Println("Suffix array already found, loading from disk")
+		suffix_array, err = ReadInt64FromFile(sa_path)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &ModelData{
+		suffix_array: suffix_array,
+		bytes_data: data_bytes,
+		vocab_size: vocab_size,
+	}, nil
+}
+
 func interactive_next_token(query_ids []int, model_data *ModelData, tk *tokenizer.Tokenizer, top_k int) {
 	prediction := model_data.next_token_distribution(query_ids, 1)
 
@@ -161,49 +210,20 @@ func main() {
 		panic(err)
 	}
 
-	// check whether tokenized data already exists
-	data_path := path.Join(outpath, "data.bin")
-	_, err = os.Stat(data_path)
-	if err != nil {
-		// tokenize data: streams documents from text file into binary file
-		fmt.Println("Tokenizing data to disk")
-		_, err := tokenize_multiprocess(filename, outpath, tokenizer_config, sentinal_val, sentinal_size, n_workers)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		fmt.Println("Tokenized data already found")
-	}
-
-	// load *entire* binary file into memory
-	data_bytes, err := ReadBytesFromFile(data_path)
+	model_data_p, err := init_model(
+		filename,
+		outpath,
+		tokenizer_config,
+		sentinal_val,
+		sentinal_size,
+		n_workers,
+		tk.GetVocabSize(true),
+	)
+	model_data := *model_data_p
 	if err != nil {
 		panic(err)
 	}
 	
-	// load suffix array
-	sa_path := path.Join(outpath, "suffix_array.bin")
-	_, err = os.Stat(sa_path)
-	var suffix_array []int64
-	if err != nil {
-		fmt.Println("Building suffix array")
-		suffix_array = create_suffix_array(data_bytes)
-
-		fmt.Println("Saving suffix array to disk")
-		err = WriteToFile(sa_path, suffix_array)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		fmt.Println("Suffix array already found, loading from disk")
-		suffix_array, err = ReadInt64FromFile(sa_path)
-		if err != nil {
-			panic(err)
-		}
-	}
-	
-	model_data := ModelData{suffix_array: suffix_array, bytes_data: data_bytes, vocab_size: tk.GetVocabSize(true)}
-
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print("enter query: ")
