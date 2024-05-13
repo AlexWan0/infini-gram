@@ -15,5 +15,10 @@ where `corpus.txt` contains one document per line. `tokenizer.json` corresponds 
 
 The argument `--interactive_mode {0,1}` lets you query for next-token and greedy generation, respectively.
 
+# TODO
+- Compare with official API
+- Parallel inference
+- Use an external suffix array algo (e.g., [fSAIS](https://github.com/dominikkempa/fsais)) to build indices for larger datasets.
+
 # Third-party libraries
 I use the `text_64` function implemented in the [Go `suffixarray` library](https://pkg.go.dev/index/suffixarray)---the files under `suffixarray/` are from this library with minor modifications.
