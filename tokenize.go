@@ -5,7 +5,6 @@ import (
 	"github.com/sugarme/tokenizer/pretrained"
 	"github.com/schollz/progressbar/v3"
 	"os"
-	"bufio"
 	"sync"
 	"path"
 	"strings"
@@ -16,9 +15,9 @@ func is_all_whitespace(line string) bool {
 	return strings.TrimSpace(line) == ""
 }
 
-func tokenize(filename string, tk *tokenizer.Tokenizer, sentinal_val, sentinal_size int) ([]byte, error) {
+func tokenize(filename, doc_split string, tk *tokenizer.Tokenizer, sentinal_val, sentinal_size int) ([]byte, error) {
 	// counts lines for progress bar
-	file_num_lines, err := num_lines(filename)
+	file_num_lines, err := num_lines(filename, doc_split)
 	if err != nil {
 		return nil, err
 	}
@@ -35,35 +34,31 @@ func tokenize(filename string, tk *tokenizer.Tokenizer, sentinal_val, sentinal_s
 	// target
 	data_bytes := make([]byte, 0)
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
+	err = readDocuments(filename, doc_split, func(line string) error {
 		bar.Add(1)
 
-		line := scanner.Text()
+		if !is_all_whitespace(line) {
+			en, err := tk.EncodeSingle(line)
+			if err != nil {
+				return err
+			}
 
-		if is_all_whitespace(line) {
-			continue
+			start_idx := len(data_bytes)
+			end_idx := len(data_bytes) + (len(en.Ids) + sentinal_size) * 2
+
+			// allocate space on this array first, maybe not the best way to do this
+			for i := 0; i < (end_idx - start_idx); i++ {
+				data_bytes = append(data_bytes, 0)
+			}
+			
+			// bytes are placed in the slice for this particular document
+			encode_sequence(data_bytes[start_idx : end_idx], en.Ids, sentinal_val, sentinal_size)
 		}
 
-		// tokenize
-		en, err := tk.EncodeSingle(line)
-		if err != nil {
-			return nil, err
-		}
+		return nil
+	})
 
-		start_idx := len(data_bytes)
-		end_idx := len(data_bytes) + (len(en.Ids) + sentinal_size) * 2
-
-		// allocate space on this array first, maybe not the best way to do this
-		for i := 0; i < (end_idx - start_idx); i++ {
-			data_bytes = append(data_bytes, 0)
-		}
-		
-		// bytes are placed in the slice for this particular document
-		encode_sequence(data_bytes[start_idx : end_idx], en.Ids, sentinal_val, sentinal_size)
-	}
-
-	if err := scanner.Err(); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -115,7 +110,7 @@ func write_worker(wg *sync.WaitGroup, filename string, results <-chan []byte) er
 	return nil
 }
 
-func tokenize_multiprocess(filename, outpath, tokenizer_config string, sentinel_val, sentinel_size, num_workers int) (string, error) {
+func tokenize_multiprocess(filename, doc_split, outpath, tokenizer_config string, sentinel_val, sentinel_size, num_workers int) (string, error) {
 	// Initialize output path
 	if err := make_folder(outpath); err != nil {
 		return "", err
@@ -123,7 +118,7 @@ func tokenize_multiprocess(filename, outpath, tokenizer_config string, sentinel_
 	sa_path := path.Join(outpath, "data.bin")
 
 	// Count lines for the progress bar
-	file_num_lines, err := num_lines(filename)
+	file_num_lines, err := num_lines(filename, doc_split)
 	if err != nil {
 		return "", err
 	}
@@ -151,17 +146,18 @@ func tokenize_multiprocess(filename, outpath, tokenizer_config string, sentinel_
 	defer file.Close()
 
 	bar := progressbar.Default(int64(file_num_lines))
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
+
+	err = readDocuments(filename, doc_split, func(line string) error {
 		bar.Add(1)
 
-		line := scanner.Text()
-
-		if is_all_whitespace(line) {
-			continue
+		if !is_all_whitespace(line) {
+			text_jobs <- line
 		}
 
-		text_jobs <- line
+		return nil
+	})
+	if err != nil {
+		return "", err
 	}
 
 	close(text_jobs)

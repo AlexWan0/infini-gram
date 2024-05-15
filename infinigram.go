@@ -125,14 +125,14 @@ func (m *ModelData) generate_greedy_stream(query_ids []int, num_new_tokens int, 
 }
 
 
-func init_model(filename, outpath, tokenizer_config string, sentinal_val, sentinal_size, n_workers, vocab_size int) (*ModelData, error) {
+func init_model(filename, line_split, outpath, tokenizer_config string, sentinal_val, sentinal_size, n_workers, vocab_size int) (*ModelData, error) {
 	// check whether tokenized data already exists
 	data_path := path.Join(outpath, "data.bin")
 	_, err := os.Stat(data_path)
 	if err != nil {
 		// tokenize data: streams documents from text file into binary file
 		fmt.Println("Tokenizing data to disk")
-		_, err := tokenize_multiprocess(filename, outpath, tokenizer_config, sentinal_val, sentinal_size, n_workers)
+		_, err := tokenize_multiprocess(filename, line_split, outpath, tokenizer_config, sentinal_val, sentinal_size, n_workers)
 		if err != nil {
 			return nil, err
 		}
@@ -230,9 +230,11 @@ func main() {
 		top_k int
 		interactive_mode int
 		num_generate int
+		line_split string
 	)
 	
 	flag.StringVar(&filename, "train_file", "", "Path to training data")
+	flag.StringVar(&line_split, "line_split", "|||", "String to split documents in training data file")
 	flag.StringVar(&outpath, "out_dir", "", "Directory to save trained model")
 	flag.IntVar(&n_workers, "n_workers", 4, "Number of workers to use")
 	flag.StringVar(&tokenizer_config, "tokenizer_config", "tokenizer_gpt2.json", "Path to .json file containing tokenizer configuration")
@@ -253,6 +255,7 @@ func main() {
 
 	model_data_p, err := init_model(
 		filename,
+		line_split,
 		outpath,
 		tokenizer_config,
 		sentinal_val,
