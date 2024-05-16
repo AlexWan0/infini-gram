@@ -3,29 +3,40 @@ package main
 import (
 	"sort"
 	"encoding/binary"
-	"math/rand"
 	"fmt"
 	"strings"
 )
 
 
-func rand_vector(size int, min int, max int) []int {
-	vec := make([]int, size)
-	for i := 0; i < size; i++ {
-		vec[i] = rand.Intn(max-min) + min
-	}
-	return vec
-}
-
 func put_byte(vec []byte, val uint16, idx int) {
 	binary.LittleEndian.PutUint16(vec[idx * 2:], val)
 }
 
-func int_to_byte(vec []int) []byte {
+func int_to_byte(vec []uint32) []byte {
 	result := make([]byte, len(vec)*2)
 
 	for i, val := range vec {
 		put_byte(result, uint16(val), i)
+	}
+
+	return result
+}
+
+func int_to_uint32(vec []int) []uint32 {
+	result := make([]uint32, len(vec))
+
+	for i, val := range vec {
+		result[i] = uint32(val)
+	}
+
+	return result
+}
+
+func uint32_to_int(vec []uint32) []int {
+	result := make([]int, len(vec))
+
+	for i, val := range vec {
+		result[i] = int(val)
 	}
 
 	return result
@@ -40,10 +51,6 @@ func byte_to_int(vec []byte) []int {
 	}
 
 	return result
-}
-
-func rand_vector_byte(size int, min int, max int) []byte {
-	return int_to_byte(rand_vector(size, min, max))
 }
 
 func prints_vec(vec []int) string {
@@ -100,7 +107,7 @@ func argsort(vec []float32, descending bool) []int {
 		}
 		return vec[indices[i]] < vec[indices[j]]
 	})
-	
+
 	return indices
 }
 

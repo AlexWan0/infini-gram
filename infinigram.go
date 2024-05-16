@@ -8,8 +8,9 @@ import (
 	"strings"
 	"flag"
 
-	"github.com/sugarme/tokenizer"
-	"github.com/sugarme/tokenizer/pretrained"
+	// "github.com/sugarme/tokenizer"
+	// "github.com/sugarme/tokenizer/pretrained"
+	"github.com/daulet/tokenizers"
 )
 
 type ModelData struct {
@@ -27,7 +28,7 @@ type Prediction struct {
 	retrieved_suffixes [][]int
 }
 
-func (m *ModelData) next_token_distribution(query_ids []int, num_extend int) *Prediction {
+func (m *ModelData) next_token_distribution(query_ids []uint32, num_extend int) *Prediction {
 	vocab_size := m.vocab_size
 	suffix_array := m.suffix_array
 	data_bytes := m.bytes_data
@@ -86,8 +87,8 @@ func (m *ModelData) next_token_distribution(query_ids []int, num_extend int) *Pr
 	return &Prediction{distr, len(best_query_enc) / 2, total, num_extend, raw_suffixes}	
 }
 
-func (m *ModelData) generate_greedy(query_ids []int, num_new_tokens int) []int {
-	result := make([]int, 0, len(query_ids) + num_new_tokens)
+func (m *ModelData) generate_greedy(query_ids []uint32, num_new_tokens int) []uint32 {
+	result := make([]uint32, 0, len(query_ids) + num_new_tokens)
 	result = append(result, query_ids...)
 	
 	for i := 0; i < num_new_tokens; i++ {
@@ -97,17 +98,17 @@ func (m *ModelData) generate_greedy(query_ids []int, num_new_tokens int) []int {
 			return result
 		}
 
-		new_token := argmax(prediction.distribution)
+		new_token := uint32(argmax(prediction.distribution))
 		result = append(result, new_token)
 	}
 
 	return result
 }
 
-func (m *ModelData) generate_greedy_stream(query_ids []int, num_new_tokens int, generated_tokens chan<- []int) {
+func (m *ModelData) generate_greedy_stream(query_ids []uint32, num_new_tokens int, generated_tokens chan<- []uint32) {
 	defer close(generated_tokens)
 
-	result := make([]int, 0, len(query_ids) + num_new_tokens)
+	result := make([]uint32, 0, len(query_ids) + num_new_tokens)
 	result = append(result, query_ids...)
 	
 	for i := 0; i < num_new_tokens; i++ {
@@ -117,7 +118,7 @@ func (m *ModelData) generate_greedy_stream(query_ids []int, num_new_tokens int, 
 			return
 		}
 
-		new_token := argmax(prediction.distribution)
+		new_token := uint32(argmax(prediction.distribution))
 		result = append(result, new_token)
 
 		generated_tokens <- result
@@ -174,7 +175,7 @@ func init_model(filename, line_split, outpath, tokenizer_config string, sentinal
 	}, nil
 }
 
-func interactive_next_token(query_ids []int, model_data *ModelData, tk *tokenizer.Tokenizer, top_k int) {
+func interactive_next_token(query_ids []uint32, model_data *ModelData, tk *tokenizers.Tokenizer, top_k int) {
 	prediction := model_data.next_token_distribution(query_ids, 1)
 
 	if prediction.num_retrieved == 0 {
@@ -182,12 +183,12 @@ func interactive_next_token(query_ids []int, model_data *ModelData, tk *tokenize
 		return
 	}
 
-	top_indices := argsort(prediction.distribution, true)
+	top_indices := int_to_uint32(argsort(prediction.distribution, true))
 	if len(top_indices) > top_k{
 		top_indices = top_indices[:top_k]
 	}
 
-	full_generation := append([]int{}, query_ids...)
+	full_generation := append([]uint32{}, query_ids...)
 	full_generation = append(full_generation, 0)
 	for i, tkn_idx := range top_indices {
 		prob := prediction.distribution[tkn_idx]
@@ -207,8 +208,8 @@ func interactive_next_token(query_ids []int, model_data *ModelData, tk *tokenize
 	}
 }
 
-func interactive_generate_greedy(query_ids []int, model_data *ModelData, tk *tokenizer.Tokenizer, num_new_tokens int) {
-	generated_tokens := make(chan []int, 8)
+func interactive_generate_greedy(query_ids []uint32, model_data *ModelData, tk *tokenizers.Tokenizer, num_new_tokens int) {
+	generated_tokens := make(chan []uint32, 8)
 
 	go model_data.generate_greedy_stream(query_ids, num_new_tokens, generated_tokens)
 
@@ -248,10 +249,12 @@ func main() {
 	flag.Parse()
 
 	// load tokenizer
-	tk, err := pretrained.FromFile(tokenizer_config)
+	tk, err := tokenizers.FromFile(tokenizer_config)
 	if err != nil {
 		panic(err)
 	}
+
+	defer tk.Close()
 
 	model_data_p, err := init_model(
 		filename,
@@ -261,7 +264,7 @@ func main() {
 		sentinal_val,
 		sentinal_size,
 		n_workers,
-		tk.GetVocabSize(true),
+		int(tk.VocabSize()),
 	)
 	if err != nil {
 		panic(err)
@@ -282,15 +285,12 @@ func main() {
 		input = strings.TrimSuffix(input, "\n")
 		input = strings.TrimSuffix(input, "\r")
 
-		en, err := tk.EncodeSingle(input)
-		if err != nil {
-			panic(err)
-		}
+		en, _ := tk.Encode(input, false)
 
 		if interactive_mode == 0 {
-			interactive_next_token(en.Ids, &model_data, tk, top_k)
+			interactive_next_token(en, &model_data, tk, top_k)
 		} else if interactive_mode == 1 {
-			interactive_generate_greedy(en.Ids, &model_data, tk, num_generate)
+			interactive_generate_greedy(en, &model_data, tk, num_generate)
 		}
 
 		// for _, next_ids := range prediction.retrieved_suffixes {

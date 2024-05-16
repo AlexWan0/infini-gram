@@ -110,7 +110,7 @@ func retrieve_substrings(suffix_array []int64, vec []byte, query []byte, extend 
 	return result_slices
 }
 
-func encode_sequence(values_bytes []byte, values []int, sentinal_val int, sentinal_size int) {
+func encode_sequence(values_bytes []byte, values []uint32, sentinal_val int, sentinal_size int) {
 	size := len(values)
 	
 	for i := 0; i < size; i++ {

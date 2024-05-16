@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/sugarme/tokenizer"
-	"github.com/sugarme/tokenizer/pretrained"
+	// "github.com/sugarme/tokenizer"
+	// "github.com/sugarme/tokenizer/pretrained"
+	"github.com/tokenizers"
 	"github.com/schollz/progressbar/v3"
 	"os"
 	"sync"
@@ -15,7 +16,7 @@ func is_all_whitespace(line_p *string) bool {
 	return strings.TrimSpace(*line_p) == ""
 }
 
-// func tokenize(filename, doc_split string, tk *tokenizer.Tokenizer, sentinal_val, sentinal_size int) ([]byte, error) {
+// func tokenize(filename, doc_split string, tk *tokenizers.Tokenizer, sentinal_val, sentinal_size int) ([]byte, error) {
 // 	// counts lines for progress bar
 // 	file_num_lines, err := num_lines(filename, doc_split)
 // 	if err != nil {
@@ -68,8 +69,8 @@ func is_all_whitespace(line_p *string) bool {
 // }
 
 
-func init_tokenizer(tokenizer_config string) (*tokenizer.Tokenizer, error) {
-	tk, err := pretrained.FromFile(tokenizer_config)
+func init_tokenizer(tokenizer_config string) (*tokenizers.Tokenizer, error) {
+	tk, err := tokenizers.FromFile(tokenizer_config)
 	return tk, err
 }
 
@@ -80,16 +81,13 @@ func worker(wg *sync.WaitGroup, id int, tokenizer_config string, sentinel_val in
 	if err != nil {
 		panic(err)
 	}
+	defer tk.Close()
 	
 	for text_p := range text_jobs {
-		en, err := tk.EncodeSingle(*text_p)
+		en, _ := tk.Encode(*text_p, false)
 
-		if err != nil {
-			panic(err)
-		}
-
-		data_bytes := make([]byte, (len(en.Ids) + sentinel_size) * 2)
-		encode_sequence(data_bytes, en.Ids, sentinel_val, sentinel_size)
+		data_bytes := make([]byte, (len(en) + sentinel_size) * 2)
+		encode_sequence(data_bytes, en, sentinel_val, sentinel_size)
 
 		results <- data_bytes
 	}
