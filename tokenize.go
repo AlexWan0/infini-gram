@@ -11,59 +11,61 @@ import (
 )
 
 
-func is_all_whitespace(line string) bool {
-	return strings.TrimSpace(line) == ""
+func is_all_whitespace(line_p *string) bool {
+	return strings.TrimSpace(*line_p) == ""
 }
 
-func tokenize(filename, doc_split string, tk *tokenizer.Tokenizer, sentinal_val, sentinal_size int) ([]byte, error) {
-	// counts lines for progress bar
-	file_num_lines, err := num_lines(filename, doc_split)
-	if err != nil {
-		return nil, err
-	}
+// func tokenize(filename, doc_split string, tk *tokenizer.Tokenizer, sentinal_val, sentinal_size int) ([]byte, error) {
+// 	// counts lines for progress bar
+// 	file_num_lines, err := num_lines(filename, doc_split)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	// read file
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
+// 	// read file
+// 	file, err := os.Open(filename)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer file.Close()
 
-	bar := progressbar.Default(int64(file_num_lines))
+// 	bar := progressbar.Default(int64(file_num_lines))
 
-	// target
-	data_bytes := make([]byte, 0)
+// 	// target
+// 	data_bytes := make([]byte, 0)
 
-	err = readDocuments(filename, doc_split, func(line string) error {
-		bar.Add(1)
+// 	err = readDocuments(filename, doc_split, func(line_p *string) error {
+// 		line := *line_p
 
-		if !is_all_whitespace(line) {
-			en, err := tk.EncodeSingle(line)
-			if err != nil {
-				return err
-			}
+// 		bar.Add(1)
 
-			start_idx := len(data_bytes)
-			end_idx := len(data_bytes) + (len(en.Ids) + sentinal_size) * 2
+// 		if !is_all_whitespace(line) {
+// 			en, err := tk.EncodeSingle(line)
+// 			if err != nil {
+// 				return err
+// 			}
 
-			// allocate space on this array first, maybe not the best way to do this
-			for i := 0; i < (end_idx - start_idx); i++ {
-				data_bytes = append(data_bytes, 0)
-			}
+// 			start_idx := len(data_bytes)
+// 			end_idx := len(data_bytes) + (len(en.Ids) + sentinal_size) * 2
+
+// 			// allocate space on this array first, maybe not the best way to do this
+// 			for i := 0; i < (end_idx - start_idx); i++ {
+// 				data_bytes = append(data_bytes, 0)
+// 			}
 			
-			// bytes are placed in the slice for this particular document
-			encode_sequence(data_bytes[start_idx : end_idx], en.Ids, sentinal_val, sentinal_size)
-		}
+// 			// bytes are placed in the slice for this particular document
+// 			encode_sequence(data_bytes[start_idx : end_idx], en.Ids, sentinal_val, sentinal_size)
+// 		}
 
-		return nil
-	})
+// 		return nil
+// 	})
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return data_bytes, nil
-}
+// 	return data_bytes, nil
+// }
 
 
 func init_tokenizer(tokenizer_config string) (*tokenizer.Tokenizer, error) {
@@ -71,7 +73,7 @@ func init_tokenizer(tokenizer_config string) (*tokenizer.Tokenizer, error) {
 	return tk, err
 }
 
-func worker(wg *sync.WaitGroup, id int, tokenizer_config string, sentinel_val int, sentinel_size int, text_jobs <-chan string, results chan<- []byte) {
+func worker(wg *sync.WaitGroup, id int, tokenizer_config string, sentinel_val int, sentinel_size int, text_jobs <-chan *string, results chan<- []byte) {
 	defer wg.Done()
 	
 	tk, err := init_tokenizer(tokenizer_config)
@@ -79,8 +81,8 @@ func worker(wg *sync.WaitGroup, id int, tokenizer_config string, sentinel_val in
 		panic(err)
 	}
 	
-	for text := range text_jobs {
-		en, err := tk.EncodeSingle(text)
+	for text_p := range text_jobs {
+		en, err := tk.EncodeSingle(*text_p)
 
 		if err != nil {
 			panic(err)
@@ -124,8 +126,8 @@ func tokenize_multiprocess(filename, doc_split, outpath, tokenizer_config string
 	}
 
 	// Initialize workers
-	text_jobs := make(chan string, num_workers*2)
-	results := make(chan []byte, num_workers*2)
+	text_jobs := make(chan *string, num_workers*4)
+	results := make(chan []byte, num_workers*4)
 
 	wg_workers := &sync.WaitGroup{}
 	wg_writer := &sync.WaitGroup{}
@@ -147,11 +149,11 @@ func tokenize_multiprocess(filename, doc_split, outpath, tokenizer_config string
 
 	bar := progressbar.Default(int64(file_num_lines))
 
-	err = readDocuments(filename, doc_split, func(line string) error {
+	err = readDocuments(filename, doc_split, func(line_p *string) error {
 		bar.Add(1)
 
-		if !is_all_whitespace(line) {
-			text_jobs <- line
+		if !is_all_whitespace(line_p) {
+			text_jobs <- line_p
 		}
 
 		return nil

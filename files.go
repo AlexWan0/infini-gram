@@ -118,7 +118,7 @@ func splitAt(substring string) func(data []byte, atEOF bool) (advance int, token
 }
 
 
-func readDocuments(filename, line_split string, callback func(string) error) error {
+func readDocuments(filename, line_split string, callback func(*string) error) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -130,15 +130,19 @@ func readDocuments(filename, line_split string, callback func(string) error) err
 	scanner.Split(splitAt(line_split))
 
 	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1024*1024)
+	scanner.Buffer(buf, 16384*1024) // max doc size of ~16mb
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		err = callback(line)
+		err = callback(&line)
 		if err != nil {
 			return err
 		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
 	}
 
 	return nil
@@ -146,7 +150,7 @@ func readDocuments(filename, line_split string, callback func(string) error) err
 
 func num_lines(filename string, line_boundary string) (int, error) {
 	counter := 0
-	err := readDocuments(filename, line_boundary, func(line string) error {
+	err := readDocuments(filename, line_boundary, func(line_p *string) error {
 		counter++
 		return nil
 	})
