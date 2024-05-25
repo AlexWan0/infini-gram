@@ -3,7 +3,7 @@ This repo contains an (unofficial) Python implementation of the infini-gram mode
 
 # Build
 ```
-go build
+go build -ldflags "-s"
 ```
 
 # Run
