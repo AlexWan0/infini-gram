@@ -3,12 +3,13 @@ package main
 import (
 	// "github.com/sugarme/tokenizer"
 	// "github.com/sugarme/tokenizer/pretrained"
-	"github.com/tokenizers"
+	"infinigram/tokenizers"
 	"github.com/schollz/progressbar/v3"
 	"os"
 	"sync"
 	"path"
 	"strings"
+	"fmt"
 )
 
 
@@ -122,6 +123,8 @@ func tokenize_multiprocess(filename, doc_split, outpath, tokenizer_config string
 	if err != nil {
 		return "", err
 	}
+
+	fmt.Println("Num lines: ", file_num_lines)
 
 	// Initialize workers
 	text_jobs := make(chan *string, num_workers*4)

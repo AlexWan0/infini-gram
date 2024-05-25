@@ -61,36 +61,23 @@ func prints_vec(vec []int) string {
 	return strings.Join(str_vals, " ")
 }
 
-func compare_slices(a []byte, b []byte) int {
-	if len(a) != len(b) {
-		panic("lengths must be equal")
-	}
-
-	// assumes the two arrays are the same size
-	n := len(a)
-	for i := 0; i < n; i++ {
-		if a[i] < b[i] {
-			return -1
-		} else if a[i] > b[i] {
-			return 1
-		}
-	}
-	return 0
+type Ordered interface {
+	~int | ~int64 | ~byte | ~float64 | ~string
 }
 
-func compare_slices_int64(a []int64, b []int64) int {
-	if len(a) != len(b) {
-		panic("lengths must be equal")
-	}
-
-	// assumes the two arrays are the same size
-	n := len(a)
+func compare_slices[T Ordered](a, b []T) int {
+	n := min(len(a), len(b))
 	for i := 0; i < n; i++ {
 		if a[i] < b[i] {
 			return -1
 		} else if a[i] > b[i] {
 			return 1
 		}
+	}
+	if len(a) < len(b) {
+		return -1
+	} else if len(a) > len(b) {
+		return 1
 	}
 	return 0
 }

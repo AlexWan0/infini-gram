@@ -8,12 +8,13 @@ import (
 func binary_search(suffix_array []int64, vec []byte, query []byte) (int64, int64) {
 	query_len := int64(len(query))
 	sa_len := int64(len(suffix_array))
+	vec_len := int64(len(vec))
 
 	start := int64(0)
 	end := sa_len
 	for start < end {
 		mid := int64((start + end) / 2)
-		mid_slice := vec[suffix_array[mid] : suffix_array[mid] + query_len]
+		mid_slice := vec[suffix_array[mid] : min(suffix_array[mid] + query_len, vec_len)]
 
 		cmp_value := compare_slices(mid_slice, query)
 
@@ -28,7 +29,7 @@ func binary_search(suffix_array []int64, vec []byte, query []byte) (int64, int64
 		return -1, -1
 	}
 
-	start_slice := vec[suffix_array[start] : suffix_array[start] + query_len]
+	start_slice := vec[suffix_array[start] : min(suffix_array[start] + query_len, vec_len)]
 	if (start == sa_len) || (compare_slices(start_slice, query) != 0) {
 		return -1, -1
 	}
@@ -38,7 +39,7 @@ func binary_search(suffix_array []int64, vec []byte, query []byte) (int64, int64
 	end = sa_len
 	for start < end {
 		mid := int64((start + end) / 2)
-		mid_slice := vec[suffix_array[mid] : suffix_array[mid] + query_len]
+		mid_slice := vec[suffix_array[mid] : min(suffix_array[mid] + query_len, vec_len)]
 
 		cmp_value := compare_slices(mid_slice, query)
 		

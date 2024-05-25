@@ -10,7 +10,7 @@ import (
 
 	// "github.com/sugarme/tokenizer"
 	// "github.com/sugarme/tokenizer/pretrained"
-	"github.com/daulet/tokenizers"
+	"infinigram/tokenizers"
 )
 
 type ModelData struct {
@@ -235,7 +235,7 @@ func main() {
 	)
 	
 	flag.StringVar(&filename, "train_file", "", "Path to training data")
-	flag.StringVar(&line_split, "line_split", "|||", "String to split documents in training data file")
+	flag.StringVar(&line_split, "line_split", "\n", "String to split documents in training data file")
 	flag.StringVar(&outpath, "out_dir", "", "Directory to save trained model")
 	flag.IntVar(&n_workers, "n_workers", 4, "Number of workers to use")
 	flag.StringVar(&tokenizer_config, "tokenizer_config", "tokenizer_gpt2.json", "Path to .json file containing tokenizer configuration")
@@ -248,6 +248,8 @@ func main() {
 
 	flag.Parse()
 
+	fmt.Println("TEST 1")
+
 	// load tokenizer
 	tk, err := tokenizers.FromFile(tokenizer_config)
 	if err != nil {
@@ -255,6 +257,8 @@ func main() {
 	}
 
 	defer tk.Close()
+
+	fmt.Println("TEST")
 
 	model_data_p, err := init_model(
 		filename,
@@ -286,6 +290,8 @@ func main() {
 		input = strings.TrimSuffix(input, "\r")
 
 		en, _ := tk.Encode(input, false)
+
+		fmt.Println(en)
 
 		if interactive_mode == 0 {
 			interactive_next_token(en, &model_data, tk, top_k)
