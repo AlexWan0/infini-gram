@@ -2,7 +2,15 @@
 This repo contains an (unofficial) Python implementation of the infini-gram model described in [Liu et al. (2024)](https://arxiv.org/abs/2401.17377). A very rough Golang implementation can be found in the [`go` branch](https://github.com/AlexWan0/infini-gram/tree/go) as well.
 
 # Build
+First, build the rust tokenizers binary:
+```bash
+cd tokenizers
+make
 ```
+
+Then, you can build the infinigram binary:
+```bash
+cd ../
 go build -ldflags "-s"
 ```
 
