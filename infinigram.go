@@ -248,8 +248,6 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Println("TEST 1")
-
 	// load tokenizer
 	tk, err := tokenizers.FromFile(tokenizer_config)
 	if err != nil {
@@ -257,8 +255,6 @@ func main() {
 	}
 
 	defer tk.Close()
-
-	fmt.Println("TEST")
 
 	model_data_p, err := init_model(
 		filename,
