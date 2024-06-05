@@ -152,7 +152,7 @@ func InitializeModel(filename, line_split, outpath, tokenizer_config string, sen
 		suffix_array = createSuffixArray(data_bytes)
 
 		fmt.Println("Saving suffix array to disk")
-		err = writeToFile(sa_path, suffix_array)
+		err = writeInt64ToFile(sa_path, suffix_array)
 		if err != nil {
 			return nil, err
 		}

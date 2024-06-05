@@ -4,33 +4,24 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"os"
 )
 
-func writeToFile(filename string, value interface{}) error {
+func writeInt64ToFile(filename string, value []int64) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	switch v := value.(type) {
-	case []byte:
-		if _, err = f.Write(v); err != nil {
-			return err
-		}
-	case []int64:
-		length := int64(len(v))
-		if err = binary.Write(f, binary.LittleEndian, length); err != nil {
-			return err
-		}
-		if err = binary.Write(f, binary.LittleEndian, v); err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("unsupported type: %T", value)
+	length := int64(len(value))
+	if err = binary.Write(f, binary.LittleEndian, length); err != nil {
+		return err
 	}
+	if err = binary.Write(f, binary.LittleEndian, value); err != nil {
+		return err
+	}
+
 	return nil
 }
 
