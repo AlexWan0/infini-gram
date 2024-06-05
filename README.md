@@ -1,5 +1,5 @@
 # Infini-gram implementation
-This repo contains an (unofficial) Python implementation of the infini-gram model described in [Liu et al. (2024)](https://arxiv.org/abs/2401.17377). A very rough Golang implementation can be found in the [`go` branch](https://github.com/AlexWan0/infini-gram/tree/go) as well.
+This branch contains a rough, (unofficial) Golang implementation of the infini-gram model described in [Liu et al. (2024)](https://arxiv.org/abs/2401.17377). This branch uses a pure Golang implementation of HF tokenizers (`github.com/sugarme/tokenizer`). I recommend you instead use `go_rust_tokenizers`, which is more well maintained.
 
 # Build
 ```
