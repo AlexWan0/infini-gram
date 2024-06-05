@@ -1,14 +1,14 @@
 package main
 
 import (
-	"fmt"
-	"encoding/binary"
 	"bufio"
-	"os"
 	"bytes"
+	"encoding/binary"
+	"fmt"
+	"os"
 )
 
-func WriteToFile(filename string, value interface{}) error {
+func writeToFile(filename string, value interface{}) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -34,8 +34,7 @@ func WriteToFile(filename string, value interface{}) error {
 	return nil
 }
 
-
-func ReadBytesFromFile(filename string) ([]byte, error) {
+func readBytesFromFile(filename string) ([]byte, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -55,7 +54,7 @@ func ReadBytesFromFile(filename string) ([]byte, error) {
 	return bytes, nil
 }
 
-func ReadInt64FromFile(filename string) ([]int64, error) {
+func readInt64FromFile(filename string) ([]int64, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -74,14 +73,14 @@ func ReadInt64FromFile(filename string) ([]int64, error) {
 	return int64s, nil
 }
 
-func make_folder(folder_path string) error {
+func makeFolder(folder_path string) error {
 	info, err := os.Stat(folder_path)
 	if err == nil {
 		if info.IsDir() {
 			return nil
 		}
 	}
-	
+
 	err = os.Mkdir(folder_path, 0755)
 	if err != nil {
 		return err
@@ -92,31 +91,30 @@ func make_folder(folder_path string) error {
 
 // https://stackoverflow.com/a/57232670
 func splitAt(substring string) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-    searchBytes := []byte(substring)
-    searchLen := len(searchBytes)
-    return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-        dataLen := len(data)
+	searchBytes := []byte(substring)
+	searchLen := len(searchBytes)
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		dataLen := len(data)
 
-        // Return nothing if at end of file and no data passed
-        if atEOF && dataLen == 0 {
-            return 0, nil, nil
-        }
+		// Return nothing if at end of file and no data passed
+		if atEOF && dataLen == 0 {
+			return 0, nil, nil
+		}
 
-        // Find next separator and return token
-        if i := bytes.Index(data, searchBytes); i >= 0 {
-            return i + searchLen, data[0:i], nil
-        }
+		// Find next separator and return token
+		if i := bytes.Index(data, searchBytes); i >= 0 {
+			return i + searchLen, data[0:i], nil
+		}
 
-        // If we're at EOF, we have a final, non-terminated line. Return it.
-        if atEOF {
-            return dataLen, data, nil
-        }
+		// If we're at EOF, we have a final, non-terminated line. Return it.
+		if atEOF {
+			return dataLen, data, nil
+		}
 
-        // Request more data.
-        return 0, nil, nil
-    }
+		// Request more data.
+		return 0, nil, nil
+	}
 }
-
 
 func readDocuments(filename, line_split string, callback func(*string) error) error {
 	file, err := os.Open(filename)
@@ -148,7 +146,7 @@ func readDocuments(filename, line_split string, callback func(*string) error) er
 	return nil
 }
 
-func num_lines(filename string, line_boundary string) (int, error) {
+func numLines(filename string, line_boundary string) (int, error) {
 	counter := 0
 	err := readDocuments(filename, line_boundary, func(line_p *string) error {
 		counter++

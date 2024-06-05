@@ -1,12 +1,12 @@
 package main
 
 import (
-	"path"
 	"bufio"
-	"os"
-	"fmt"
-	"strings"
 	"flag"
+	"fmt"
+	"os"
+	"path"
+	"strings"
 
 	// "github.com/sugarme/tokenizer"
 	// "github.com/sugarme/tokenizer/pretrained"
@@ -15,20 +15,19 @@ import (
 
 type ModelData struct {
 	suffix_array []int64
-	bytes_data []byte
-	vocab_size int
+	bytes_data   []byte
+	vocab_size   int
 }
 
-
 type Prediction struct {
-	distribution []float32
-	effective_n int
-	num_retrieved int
-	num_extend int
+	distribution       []float32
+	effective_n        int
+	num_retrieved      int
+	num_extend         int
 	retrieved_suffixes [][]int
 }
 
-func (m *ModelData) next_token_distribution(query_ids []uint32, num_extend int) *Prediction {
+func (m *ModelData) NextTokenDistribution(query_ids []uint32, num_extend int) *Prediction {
 	vocab_size := m.vocab_size
 	suffix_array := m.suffix_array
 	data_bytes := m.bytes_data
@@ -41,13 +40,13 @@ func (m *ModelData) next_token_distribution(query_ids []uint32, num_extend int) 
 
 	for left <= right {
 		// the current candidate for the longest suffix length
-		mid := left + (right - left) / 2
-		query_ids_suffix := query_ids[len(query_ids) - mid:]
+		mid := left + (right-left)/2
+		query_ids_suffix := query_ids[len(query_ids)-mid:]
 
-		query_suffix_enc := int_to_byte(query_ids_suffix)
+		query_suffix_enc := intToByte(query_ids_suffix)
 
 		// check if, at this length, we get any matches
-		num_matches := retrieve_num(suffix_array, data_bytes, query_suffix_enc)
+		num_matches := retrieveNum(suffix_array, data_bytes, query_suffix_enc)
 
 		if num_matches > 0 {
 			best_query_enc = query_suffix_enc
@@ -61,17 +60,17 @@ func (m *ModelData) next_token_distribution(query_ids []uint32, num_extend int) 
 		return &Prediction{nil, -1, 0, num_extend, make([][]int, 0)}
 	}
 
-	substrings := retrieve_substrings(suffix_array, data_bytes, best_query_enc, int64(num_extend))
+	substrings := retrieveSubstrings(suffix_array, data_bytes, best_query_enc, int64(num_extend))
 
 	raw_suffixes := make([][]int, len(substrings))
 	distr := make([]float32, vocab_size)
 	total := 0
 	for i, s := range substrings {
-		retrieved_suffix := byte_to_int(s)
-		
-		new_ids := retrieved_suffix[len(retrieved_suffix) - num_extend:]
+		retrieved_suffix := byteToInt(s)
+
+		new_ids := retrieved_suffix[len(retrieved_suffix)-num_extend:]
 		new_ids = append([]int{}, new_ids...)
-		
+
 		// add to raw retrievals
 		raw_suffixes[i] = new_ids
 
@@ -84,15 +83,15 @@ func (m *ModelData) next_token_distribution(query_ids []uint32, num_extend int) 
 		distr[i] /= float32(total)
 	}
 
-	return &Prediction{distr, len(best_query_enc) / 2, total, num_extend, raw_suffixes}	
+	return &Prediction{distr, len(best_query_enc) / 2, total, num_extend, raw_suffixes}
 }
 
-func (m *ModelData) generate_greedy(query_ids []uint32, num_new_tokens int) []uint32 {
-	result := make([]uint32, 0, len(query_ids) + num_new_tokens)
+func (m *ModelData) GenerateGreedy(query_ids []uint32, num_new_tokens int) []uint32 {
+	result := make([]uint32, 0, len(query_ids)+num_new_tokens)
 	result = append(result, query_ids...)
-	
+
 	for i := 0; i < num_new_tokens; i++ {
-		prediction := m.next_token_distribution(result, 1)
+		prediction := m.NextTokenDistribution(result, 1)
 
 		if prediction.num_retrieved == 0 {
 			return result
@@ -105,14 +104,14 @@ func (m *ModelData) generate_greedy(query_ids []uint32, num_new_tokens int) []ui
 	return result
 }
 
-func (m *ModelData) generate_greedy_stream(query_ids []uint32, num_new_tokens int, generated_tokens chan<- []uint32) {
+func (m *ModelData) GenerateGreedyStream(query_ids []uint32, num_new_tokens int, generated_tokens chan<- []uint32) {
 	defer close(generated_tokens)
 
-	result := make([]uint32, 0, len(query_ids) + num_new_tokens)
+	result := make([]uint32, 0, len(query_ids)+num_new_tokens)
 	result = append(result, query_ids...)
-	
+
 	for i := 0; i < num_new_tokens; i++ {
-		prediction := m.next_token_distribution(result, 1)
+		prediction := m.NextTokenDistribution(result, 1)
 
 		if prediction.num_retrieved == 0 {
 			return
@@ -125,15 +124,14 @@ func (m *ModelData) generate_greedy_stream(query_ids []uint32, num_new_tokens in
 	}
 }
 
-
-func init_model(filename, line_split, outpath, tokenizer_config string, sentinal_val, sentinal_size, n_workers, vocab_size int) (*ModelData, error) {
+func InitializeModel(filename, line_split, outpath, tokenizer_config string, sentinal_val, sentinal_size, n_workers, vocab_size int) (*ModelData, error) {
 	// check whether tokenized data already exists
 	data_path := path.Join(outpath, "data.bin")
 	_, err := os.Stat(data_path)
 	if err != nil {
 		// tokenize data: streams documents from text file into binary file
 		fmt.Println("Tokenizing data to disk")
-		_, err := tokenize_multiprocess(filename, line_split, outpath, tokenizer_config, sentinal_val, sentinal_size, n_workers)
+		_, err := tokenizeMultiprocess(filename, line_split, outpath, tokenizer_config, sentinal_val, sentinal_size, n_workers)
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +140,7 @@ func init_model(filename, line_split, outpath, tokenizer_config string, sentinal
 	}
 
 	// load *entire* binary file into memory
-	data_bytes, err := ReadBytesFromFile(data_path)
+	data_bytes, err := readBytesFromFile(data_path)
 	if err != nil {
 		return nil, err
 	}
@@ -153,16 +151,16 @@ func init_model(filename, line_split, outpath, tokenizer_config string, sentinal
 	var suffix_array []int64
 	if err != nil {
 		fmt.Println("Building suffix array")
-		suffix_array = create_suffix_array(data_bytes)
+		suffix_array = createSuffixArray(data_bytes)
 
 		fmt.Println("Saving suffix array to disk")
-		err = WriteToFile(sa_path, suffix_array)
+		err = writeToFile(sa_path, suffix_array)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		fmt.Println("Suffix array already found, loading from disk")
-		suffix_array, err = ReadInt64FromFile(sa_path)
+		suffix_array, err = readInt64FromFile(sa_path)
 		if err != nil {
 			return nil, err
 		}
@@ -170,21 +168,21 @@ func init_model(filename, line_split, outpath, tokenizer_config string, sentinal
 
 	return &ModelData{
 		suffix_array: suffix_array,
-		bytes_data: data_bytes,
-		vocab_size: vocab_size,
+		bytes_data:   data_bytes,
+		vocab_size:   vocab_size,
 	}, nil
 }
 
-func interactive_next_token(query_ids []uint32, model_data *ModelData, tk *tokenizers.Tokenizer, top_k int) {
-	prediction := model_data.next_token_distribution(query_ids, 1)
+func InteractiveNextToken(query_ids []uint32, model_data *ModelData, tk *tokenizers.Tokenizer, top_k int) {
+	prediction := model_data.NextTokenDistribution(query_ids, 1)
 
 	if prediction.num_retrieved == 0 {
 		fmt.Println("No continuations found")
 		return
 	}
 
-	top_indices := int_to_uint32(argsort(prediction.distribution, true))
-	if len(top_indices) > top_k{
+	top_indices := intToUint32(argsort(prediction.distribution, true))
+	if len(top_indices) > top_k {
 		top_indices = top_indices[:top_k]
 	}
 
@@ -193,14 +191,14 @@ func interactive_next_token(query_ids []uint32, model_data *ModelData, tk *token
 	for i, tkn_idx := range top_indices {
 		prob := prediction.distribution[tkn_idx]
 
-		full_generation[len(full_generation) - 1] = tkn_idx
+		full_generation[len(full_generation)-1] = tkn_idx
 
 		total := prediction.num_retrieved
 		fmt.Printf(
 			"n=%d, p=%.3f (%d/%d), k=%d: %s\n",
 			prediction.effective_n,
 			prob,
-			int(prob * float32(total)),
+			int(prob*float32(total)),
 			total,
 			i,
 			tk.Decode(full_generation, true),
@@ -208,10 +206,10 @@ func interactive_next_token(query_ids []uint32, model_data *ModelData, tk *token
 	}
 }
 
-func interactive_generate_greedy(query_ids []uint32, model_data *ModelData, tk *tokenizers.Tokenizer, num_new_tokens int) {
+func InteractiveGenerateGreedy(query_ids []uint32, model_data *ModelData, tk *tokenizers.Tokenizer, num_new_tokens int) {
 	generated_tokens := make(chan []uint32, 8)
 
-	go model_data.generate_greedy_stream(query_ids, num_new_tokens, generated_tokens)
+	go model_data.GenerateGreedyStream(query_ids, num_new_tokens, generated_tokens)
 
 	for tkns := range generated_tokens {
 		fmt.Printf("====\n%s\n", tk.Decode(tkns, true))
@@ -222,18 +220,18 @@ func main() {
 	var _ = fmt.Printf
 
 	var (
-		filename string
-		outpath  string
-		n_workers int
+		filename         string
+		outpath          string
+		n_workers        int
 		tokenizer_config string
-		sentinal_val int
-		sentinal_size int
-		top_k int
+		sentinal_val     int
+		sentinal_size    int
+		top_k            int
 		interactive_mode int
-		num_generate int
-		line_split string
+		num_generate     int
+		line_split       string
 	)
-	
+
 	flag.StringVar(&filename, "train_file", "", "Path to training data")
 	flag.StringVar(&line_split, "line_split", "\n", "String to split documents in training data file")
 	flag.StringVar(&outpath, "out_dir", "", "Directory to save trained model")
@@ -241,7 +239,7 @@ func main() {
 	flag.StringVar(&tokenizer_config, "tokenizer_config", "tokenizer_gpt2.json", "Path to .json file containing tokenizer configuration")
 	flag.IntVar(&sentinal_val, "sentinal_val", 0, "Value to add at the end of every document")
 	flag.IntVar(&sentinal_size, "sentinal_size", 2, "Number of sentinals to add at the end of every document")
-	
+
 	flag.IntVar(&interactive_mode, "interactive_mode", 0, "0: print the top-k best next-token continuations 1: greedily generate k tokens")
 	flag.IntVar(&top_k, "top_k", 8, "Number of most frequent continuations to print during interactive mode 0")
 	flag.IntVar(&num_generate, "num_generate", 32, "Number of new tokens to generate")
@@ -256,7 +254,7 @@ func main() {
 
 	defer tk.Close()
 
-	model_data_p, err := init_model(
+	model_data_p, err := InitializeModel(
 		filename,
 		line_split,
 		outpath,
@@ -269,9 +267,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	model_data := *model_data_p
-	
+
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print("enter query: ")
@@ -281,7 +279,7 @@ func main() {
 			fmt.Println("Error reading input:", err)
 			continue
 		}
-		
+
 		input = strings.TrimSuffix(input, "\n")
 		input = strings.TrimSuffix(input, "\r")
 
@@ -290,9 +288,9 @@ func main() {
 		fmt.Println(en)
 
 		if interactive_mode == 0 {
-			interactive_next_token(en, &model_data, tk, top_k)
+			InteractiveNextToken(en, &model_data, tk, top_k)
 		} else if interactive_mode == 1 {
-			interactive_generate_greedy(en, &model_data, tk, num_generate)
+			InteractiveGenerateGreedy(en, &model_data, tk, num_generate)
 		}
 
 		// for _, next_ids := range prediction.retrieved_suffixes {

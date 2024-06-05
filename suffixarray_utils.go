@@ -4,8 +4,7 @@ import (
 	"infinigram/suffixarray"
 )
 
-
-func binary_search(suffix_array []int64, vec []byte, query []byte) (int64, int64) {
+func arraySearch(suffix_array []int64, vec []byte, query []byte) (int64, int64) {
 	query_len := int64(len(query))
 	sa_len := int64(len(suffix_array))
 	vec_len := int64(len(vec))
@@ -14,9 +13,9 @@ func binary_search(suffix_array []int64, vec []byte, query []byte) (int64, int64
 	end := sa_len
 	for start < end {
 		mid := int64((start + end) / 2)
-		mid_slice := vec[suffix_array[mid] : min(suffix_array[mid] + query_len, vec_len)]
+		mid_slice := vec[suffix_array[mid]:min(suffix_array[mid]+query_len, vec_len)]
 
-		cmp_value := compare_slices(mid_slice, query)
+		cmp_value := compareSlices(mid_slice, query)
 
 		if cmp_value < 0 {
 			start = mid + 1
@@ -29,20 +28,20 @@ func binary_search(suffix_array []int64, vec []byte, query []byte) (int64, int64
 		return -1, -1
 	}
 
-	start_slice := vec[suffix_array[start] : min(suffix_array[start] + query_len, vec_len)]
-	if (start == sa_len) || (compare_slices(start_slice, query) != 0) {
+	start_slice := vec[suffix_array[start]:min(suffix_array[start]+query_len, vec_len)]
+	if (start == sa_len) || (compareSlices(start_slice, query) != 0) {
 		return -1, -1
 	}
 
 	first_occ := start
-	
+
 	end = sa_len
 	for start < end {
 		mid := int64((start + end) / 2)
-		mid_slice := vec[suffix_array[mid] : min(suffix_array[mid] + query_len, vec_len)]
+		mid_slice := vec[suffix_array[mid]:min(suffix_array[mid]+query_len, vec_len)]
 
-		cmp_value := compare_slices(mid_slice, query)
-		
+		cmp_value := compareSlices(mid_slice, query)
+
 		if (cmp_value == 0) || (cmp_value == -1) {
 			start = mid + 1
 		} else {
@@ -51,7 +50,7 @@ func binary_search(suffix_array []int64, vec []byte, query []byte) (int64, int64
 	}
 
 	last_occ := start - 1
-	
+
 	return first_occ, last_occ
 }
 
@@ -60,17 +59,17 @@ func retrieve(suffix_array []int64, vec []byte, query []byte) []int64 {
 	// filter to only include ones that match byte boundaries
 	// return start positions of suffixes
 
-	start_idx, end_idx := binary_search(suffix_array, vec, query)
+	start_idx, end_idx := arraySearch(suffix_array, vec, query)
 
 	if (start_idx == -1) && (end_idx == -1) {
 		return make([]int64, 0, 0)
 	}
 
-	suffix_starts := make([]int64, 0, end_idx - start_idx + 1)
+	suffix_starts := make([]int64, 0, end_idx-start_idx+1)
 
 	for s := start_idx; s <= end_idx; s++ {
 		start_pos := suffix_array[s]
-		if start_pos % 2 == 0 {
+		if start_pos%2 == 0 {
 			suffix_starts = append(suffix_starts, start_pos)
 		}
 	}
@@ -78,8 +77,8 @@ func retrieve(suffix_array []int64, vec []byte, query []byte) []int64 {
 	return suffix_starts
 }
 
-func retrieve_num(suffix_array []int64, vec []byte, query []byte) int {
-	start_idx, end_idx := binary_search(suffix_array, vec, query)
+func retrieveNum(suffix_array []int64, vec []byte, query []byte) int {
+	start_idx, end_idx := arraySearch(suffix_array, vec, query)
 
 	if (start_idx == -1) && (end_idx == -1) {
 		return 0
@@ -89,7 +88,7 @@ func retrieve_num(suffix_array []int64, vec []byte, query []byte) int {
 
 	for s := start_idx; s <= end_idx; s++ {
 		start_pos := suffix_array[s]
-		if start_pos % 2 == 0 {
+		if start_pos%2 == 0 {
 			num += 1
 		}
 	}
@@ -97,7 +96,7 @@ func retrieve_num(suffix_array []int64, vec []byte, query []byte) int {
 	return num
 }
 
-func retrieve_substrings(suffix_array []int64, vec []byte, query []byte, extend int64) [][]byte {
+func retrieveSubstrings(suffix_array []int64, vec []byte, query []byte, extend int64) [][]byte {
 	suffix_starts := retrieve(suffix_array, vec, query)
 
 	n_result := len(suffix_starts)
@@ -105,28 +104,28 @@ func retrieve_substrings(suffix_array []int64, vec []byte, query []byte, extend 
 
 	result_slices := make([][]byte, n_result)
 	for i, start := range suffix_starts {
-		result_slices[i] = vec[start : start + query_len + (extend * 2)]
+		result_slices[i] = vec[start : start+query_len+(extend*2)]
 	}
 
 	return result_slices
 }
 
-func encode_sequence(values_bytes []byte, values []uint32, sentinal_val int, sentinal_size int) {
+func encodeSequence(values_bytes []byte, values []uint32, sentinal_val int, sentinal_size int) {
 	size := len(values)
-	
+
 	for i := 0; i < size; i++ {
-		put_byte(values_bytes, uint16(values[i]), i)
+		putByte(values_bytes, uint16(values[i]), i)
 	}
 
-	for i := 0; i < sentinal_size; i ++ {
-		put_byte(values_bytes, uint16(sentinal_val), size + i)
+	for i := 0; i < sentinal_size; i++ {
+		putByte(values_bytes, uint16(sentinal_val), size+i)
 	}
 }
 
-func create_suffix_array(values_bytes []byte) []int64 {
+func createSuffixArray(values_bytes []byte) []int64 {
 	suffix_array := make([]int64, len(values_bytes))
 	suffixarray.Text_64(values_bytes, suffix_array)
-	
+
 	return suffix_array
 }
 

@@ -1,28 +1,27 @@
 package main
 
 import (
-	"sort"
 	"encoding/binary"
 	"fmt"
+	"sort"
 	"strings"
 )
 
-
-func put_byte(vec []byte, val uint16, idx int) {
-	binary.LittleEndian.PutUint16(vec[idx * 2:], val)
+func putByte(vec []byte, val uint16, idx int) {
+	binary.LittleEndian.PutUint16(vec[idx*2:], val)
 }
 
-func int_to_byte(vec []uint32) []byte {
+func intToByte(vec []uint32) []byte {
 	result := make([]byte, len(vec)*2)
 
 	for i, val := range vec {
-		put_byte(result, uint16(val), i)
+		putByte(result, uint16(val), i)
 	}
 
 	return result
 }
 
-func int_to_uint32(vec []int) []uint32 {
+func intToUint32(vec []int) []uint32 {
 	result := make([]uint32, len(vec))
 
 	for i, val := range vec {
@@ -32,7 +31,7 @@ func int_to_uint32(vec []int) []uint32 {
 	return result
 }
 
-func uint32_to_int(vec []uint32) []int {
+func uint32ToInt(vec []uint32) []int {
 	result := make([]int, len(vec))
 
 	for i, val := range vec {
@@ -42,18 +41,18 @@ func uint32_to_int(vec []uint32) []int {
 	return result
 }
 
-func byte_to_int(vec []byte) []int {
+func byteToInt(vec []byte) []int {
 	n := len(vec) / 2
 	result := make([]int, n)
 
 	for i := 0; i < n; i++ {
-		result[i] = int(binary.LittleEndian.Uint16(vec[i * 2:]))
+		result[i] = int(binary.LittleEndian.Uint16(vec[i*2:]))
 	}
 
 	return result
 }
 
-func prints_vec(vec []int) string {
+func printsVec(vec []int) string {
 	str_vals := make([]string, len(vec))
 	for i, num := range vec {
 		str_vals[i] = fmt.Sprintf("%d", num)
@@ -65,7 +64,7 @@ type Ordered interface {
 	~int | ~int64 | ~byte | ~float64 | ~string
 }
 
-func compare_slices[T Ordered](a, b []T) int {
+func compareSlices[T Ordered](a, b []T) int {
 	n := min(len(a), len(b))
 	for i := 0; i < n; i++ {
 		if a[i] < b[i] {

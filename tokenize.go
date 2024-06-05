@@ -3,17 +3,17 @@ package main
 import (
 	// "github.com/sugarme/tokenizer"
 	// "github.com/sugarme/tokenizer/pretrained"
+	"fmt"
 	"infinigram/tokenizers"
-	"github.com/schollz/progressbar/v3"
 	"os"
-	"sync"
 	"path"
 	"strings"
-	"fmt"
+	"sync"
+
+	"github.com/schollz/progressbar/v3"
 )
 
-
-func is_all_whitespace(line_p *string) bool {
+func isAllWhitespace(line_p *string) bool {
 	return strings.TrimSpace(*line_p) == ""
 }
 
@@ -54,7 +54,7 @@ func is_all_whitespace(line_p *string) bool {
 // 			for i := 0; i < (end_idx - start_idx); i++ {
 // 				data_bytes = append(data_bytes, 0)
 // 			}
-			
+
 // 			// bytes are placed in the slice for this particular document
 // 			encode_sequence(data_bytes[start_idx : end_idx], en.Ids, sentinal_val, sentinal_size)
 // 		}
@@ -69,34 +69,33 @@ func is_all_whitespace(line_p *string) bool {
 // 	return data_bytes, nil
 // }
 
-
-func init_tokenizer(tokenizer_config string) (*tokenizers.Tokenizer, error) {
+func initTokenizer(tokenizer_config string) (*tokenizers.Tokenizer, error) {
 	tk, err := tokenizers.FromFile(tokenizer_config)
 	return tk, err
 }
 
 func worker(wg *sync.WaitGroup, id int, tokenizer_config string, sentinel_val int, sentinel_size int, text_jobs <-chan *string, results chan<- []byte) {
 	defer wg.Done()
-	
-	tk, err := init_tokenizer(tokenizer_config)
+
+	tk, err := initTokenizer(tokenizer_config)
 	if err != nil {
 		panic(err)
 	}
 	defer tk.Close()
-	
+
 	for text_p := range text_jobs {
 		en, _ := tk.Encode(*text_p, false)
 
-		data_bytes := make([]byte, (len(en) + sentinel_size) * 2)
-		encode_sequence(data_bytes, en, sentinel_val, sentinel_size)
+		data_bytes := make([]byte, (len(en)+sentinel_size)*2)
+		encodeSequence(data_bytes, en, sentinel_val, sentinel_size)
 
 		results <- data_bytes
 	}
 }
 
-func write_worker(wg *sync.WaitGroup, filename string, results <-chan []byte) error {
+func writeWorker(wg *sync.WaitGroup, filename string, results <-chan []byte) error {
 	defer wg.Done()
-	
+
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -111,15 +110,15 @@ func write_worker(wg *sync.WaitGroup, filename string, results <-chan []byte) er
 	return nil
 }
 
-func tokenize_multiprocess(filename, doc_split, outpath, tokenizer_config string, sentinel_val, sentinel_size, num_workers int) (string, error) {
+func tokenizeMultiprocess(filename, doc_split, outpath, tokenizer_config string, sentinel_val, sentinel_size, num_workers int) (string, error) {
 	// Initialize output path
-	if err := make_folder(outpath); err != nil {
+	if err := makeFolder(outpath); err != nil {
 		return "", err
 	}
 	sa_path := path.Join(outpath, "data.bin")
 
 	// Count lines for the progress bar
-	file_num_lines, err := num_lines(filename, doc_split)
+	file_num_lines, err := numLines(filename, doc_split)
 	if err != nil {
 		return "", err
 	}
@@ -139,7 +138,7 @@ func tokenize_multiprocess(filename, doc_split, outpath, tokenizer_config string
 	}
 
 	wg_writer.Add(1)
-	go write_worker(wg_writer, sa_path, results)
+	go writeWorker(wg_writer, sa_path, results)
 
 	// Read input file and enqueue lines for processing
 	file, err := os.Open(filename)
@@ -153,7 +152,7 @@ func tokenize_multiprocess(filename, doc_split, outpath, tokenizer_config string
 	err = readDocuments(filename, doc_split, func(line_p *string) error {
 		bar.Add(1)
 
-		if !is_all_whitespace(line_p) {
+		if !isAllWhitespace(line_p) {
 			text_jobs <- line_p
 		}
 
