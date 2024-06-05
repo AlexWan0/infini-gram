@@ -53,11 +53,11 @@ func byteToInt(vec []byte) []int {
 }
 
 func printsVec(vec []int) string {
-	str_vals := make([]string, len(vec))
+	strVals := make([]string, len(vec))
 	for i, num := range vec {
-		str_vals[i] = fmt.Sprintf("%d", num)
+		strVals[i] = fmt.Sprintf("%d", num)
 	}
-	return strings.Join(str_vals, " ")
+	return strings.Join(strVals, " ")
 }
 
 type Ordered interface {
@@ -98,13 +98,13 @@ func argsort(vec []float32, descending bool) []int {
 }
 
 func argmax(vec []float32) int {
-	max_val := vec[0]
-	max_idx := 0
+	maxVal := vec[0]
+	maxIdx := 0
 	for i, val := range vec {
-		if val > max_val {
-			max_val = val
-			max_idx = i
+		if val > maxVal {
+			maxVal = val
+			maxIdx = i
 		}
 	}
-	return max_idx
+	return maxIdx
 }

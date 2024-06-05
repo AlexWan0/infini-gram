@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-func writeIndicesToFile(filename string, indices_out []int64) error {
+func writeIndicesToFile(filename string, indicesOut []int64) error {
 	// writes the length followed by the values
 	// only writes even values (indices that align with byte boundaries)
 
@@ -19,18 +19,18 @@ func writeIndicesToFile(filename string, indices_out []int64) error {
 	defer f.Close()
 
 	// create a buffered writer
-	buf_writer := bufio.NewWriter(f)
+	bufWriter := bufio.NewWriter(f)
 
 	// write placeholder value for the length
-	if err = binary.Write(buf_writer, binary.LittleEndian, int64(0)); err != nil {
+	if err = binary.Write(bufWriter, binary.LittleEndian, int64(0)); err != nil {
 		return err
 	}
 
 	// write indices
 	length := 0
-	for _, v := range indices_out {
+	for _, v := range indicesOut {
 		if v%2 == 0 { // if aligns with byte boundary
-			if err = binary.Write(buf_writer, binary.LittleEndian, v); err != nil {
+			if err = binary.Write(bufWriter, binary.LittleEndian, v); err != nil {
 				return err
 			}
 			length++
@@ -38,7 +38,7 @@ func writeIndicesToFile(filename string, indices_out []int64) error {
 	}
 
 	// flush the buffer to write the data to the file
-	if err = buf_writer.Flush(); err != nil {
+	if err = bufWriter.Flush(); err != nil {
 		return err
 	}
 
@@ -92,15 +92,15 @@ func readInt64FromFile(filename string) ([]int64, error) {
 	return int64s, nil
 }
 
-func makeFolder(folder_path string) error {
-	info, err := os.Stat(folder_path)
+func makeFolder(folderPath string) error {
+	info, err := os.Stat(folderPath)
 	if err == nil {
 		if info.IsDir() {
 			return nil
 		}
 	}
 
-	err = os.Mkdir(folder_path, 0755)
+	err = os.Mkdir(folderPath, 0755)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func splitAt(substring string) func(data []byte, atEOF bool) (advance int, token
 	}
 }
 
-func readDocuments(filename, line_split string, callback func(*string) error) error {
+func readDocuments(filename, lineSplit string, callback func(*string) error) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -144,7 +144,7 @@ func readDocuments(filename, line_split string, callback func(*string) error) er
 
 	scanner := bufio.NewScanner(file)
 
-	scanner.Split(splitAt(line_split))
+	scanner.Split(splitAt(lineSplit))
 
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 16384*1024) // max doc size of ~16mb
@@ -165,9 +165,9 @@ func readDocuments(filename, line_split string, callback func(*string) error) er
 	return nil
 }
 
-func numLines(filename string, line_boundary string) (int, error) {
+func numLines(filename string, lineBoundary string) (int, error) {
 	counter := 0
-	err := readDocuments(filename, line_boundary, func(line_p *string) error {
+	err := readDocuments(filename, lineBoundary, func(lineP *string) error {
 		counter++
 		return nil
 	})
