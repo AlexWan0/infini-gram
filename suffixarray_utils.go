@@ -62,7 +62,7 @@ func retrieve(suffix_array []int64, vec []byte, query []byte) []int64 {
 	start_idx, end_idx := arraySearch(suffix_array, vec, query)
 
 	if (start_idx == -1) && (end_idx == -1) {
-		return make([]int64, 0, 0)
+		return make([]int64, 0)
 	}
 
 	suffix_starts := make([]int64, 0, end_idx-start_idx+1)

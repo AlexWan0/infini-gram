@@ -20,7 +20,7 @@ func initTokenizer(tokenizer_config string) (*tokenizers.Tokenizer, error) {
 	return tk, err
 }
 
-func worker(wg *sync.WaitGroup, id int, tokenizer_config string, sentinel_val int, sentinel_size int, text_jobs <-chan *string, results chan<- []byte) {
+func worker(wg *sync.WaitGroup, tokenizer_config string, sentinel_val int, sentinel_size int, text_jobs <-chan *string, results chan<- []byte) {
 	defer wg.Done()
 
 	tk, err := initTokenizer(tokenizer_config)
@@ -80,7 +80,7 @@ func tokenizeMultiprocess(filename, doc_split, outpath, tokenizer_config string,
 
 	for w := 0; w < num_workers; w++ {
 		wg_workers.Add(1)
-		go worker(wg_workers, w, tokenizer_config, sentinel_val, sentinel_size, text_jobs, results)
+		go worker(wg_workers, tokenizer_config, sentinel_val, sentinel_size, text_jobs, results)
 	}
 
 	wg_writer.Add(1)

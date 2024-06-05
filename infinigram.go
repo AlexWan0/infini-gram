@@ -77,7 +77,7 @@ func (m *ModelData) NextTokenDistribution(query_ids []uint32, num_extend int) *P
 		total += 1
 	}
 
-	for i, _ := range distr {
+	for i := range distr {
 		distr[i] /= float32(total)
 	}
 
