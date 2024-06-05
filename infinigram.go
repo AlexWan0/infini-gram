@@ -8,8 +8,6 @@ import (
 	"path"
 	"strings"
 
-	// "github.com/sugarme/tokenizer"
-	// "github.com/sugarme/tokenizer/pretrained"
 	"infinigram/tokenizers"
 )
 
@@ -292,11 +290,5 @@ func main() {
 		} else if interactive_mode == 1 {
 			InteractiveGenerateGreedy(en, &model_data, tk, num_generate)
 		}
-
-		// for _, next_ids := range prediction.retrieved_suffixes {
-		// 	full_generation := append([]int{}, en.Ids...)
-		// 	full_generation = append(full_generation, next_ids...)
-		// 	// fmt.Println(prediction.effective_n, "-", tk.Decode(full_generation, true)
-		// }
 	}
 }

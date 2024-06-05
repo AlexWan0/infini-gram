@@ -1,8 +1,6 @@
 package main
 
 import (
-	// "github.com/sugarme/tokenizer"
-	// "github.com/sugarme/tokenizer/pretrained"
 	"fmt"
 	"infinigram/tokenizers"
 	"os"
@@ -16,58 +14,6 @@ import (
 func isAllWhitespace(line_p *string) bool {
 	return strings.TrimSpace(*line_p) == ""
 }
-
-// func tokenize(filename, doc_split string, tk *tokenizers.Tokenizer, sentinal_val, sentinal_size int) ([]byte, error) {
-// 	// counts lines for progress bar
-// 	file_num_lines, err := num_lines(filename, doc_split)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	// read file
-// 	file, err := os.Open(filename)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer file.Close()
-
-// 	bar := progressbar.Default(int64(file_num_lines))
-
-// 	// target
-// 	data_bytes := make([]byte, 0)
-
-// 	err = readDocuments(filename, doc_split, func(line_p *string) error {
-// 		line := *line_p
-
-// 		bar.Add(1)
-
-// 		if !is_all_whitespace(line) {
-// 			en, err := tk.EncodeSingle(line)
-// 			if err != nil {
-// 				return err
-// 			}
-
-// 			start_idx := len(data_bytes)
-// 			end_idx := len(data_bytes) + (len(en.Ids) + sentinal_size) * 2
-
-// 			// allocate space on this array first, maybe not the best way to do this
-// 			for i := 0; i < (end_idx - start_idx); i++ {
-// 				data_bytes = append(data_bytes, 0)
-// 			}
-
-// 			// bytes are placed in the slice for this particular document
-// 			encode_sequence(data_bytes[start_idx : end_idx], en.Ids, sentinal_val, sentinal_size)
-// 		}
-
-// 		return nil
-// 	})
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return data_bytes, nil
-// }
 
 func initTokenizer(tokenizer_config string) (*tokenizers.Tokenizer, error) {
 	tk, err := tokenizers.FromFile(tokenizer_config)
