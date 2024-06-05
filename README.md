@@ -1,5 +1,5 @@
 # Infini-gram implementation
-This repo contains an (unofficial) Python implementation of the infini-gram model described in [Liu et al. (2024)](https://arxiv.org/abs/2401.17377). A very rough Golang implementation can be found in the [`go` branch](https://github.com/AlexWan0/infini-gram/tree/go) as well.
+This repo contains an (unofficial) Python implementation of the infini-gram model described in [Liu et al. (2024)](https://arxiv.org/abs/2401.17377). A very rough Golang implementation can be found in the [`go_rust_tokenizers` branch](https://github.com/AlexWan0/infini-gram/tree/go_rust_tokenizers) as well. This particular Golang implementation uses bindings to the official tokenizers library.
 
 ## Implementation TODOs
 * Parallelism during inference is annoying because the suffix array and corpora should be shared between multiple processes
