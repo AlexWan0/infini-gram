@@ -110,7 +110,10 @@ func encodeSequence(values_bytes []byte, values []uint32, sentinal_val int, sent
 	}
 }
 
-func createSuffixArray(values_bytes []byte) []int64 {
+func createUnalignedSuffixArray(values_bytes []byte) []int64 {
+	// not all indices in suffix array align with byte boundaries
+	// the non-aligned indices are filtered while writing to disk
+
 	suffix_array := make([]int64, len(values_bytes))
 	suffixarray.Text_64(values_bytes, suffix_array)
 

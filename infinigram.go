@@ -143,25 +143,27 @@ func InitializeModel(filename, line_split, outpath, tokenizer_config string, sen
 		return nil, err
 	}
 
-	// load suffix array
+	// check whether suffix array already exists
 	sa_path := path.Join(outpath, "suffix_array.bin")
 	_, err = os.Stat(sa_path)
-	var suffix_array []int64
 	if err != nil {
+		// create suffix array, not all indices are aligned to byte boundaries
 		fmt.Println("Building suffix array")
-		suffix_array = createSuffixArray(data_bytes)
+		unaligned_sa := createUnalignedSuffixArray(data_bytes)
 
+		// write to disk & filter for aligned indices
 		fmt.Println("Saving suffix array to disk")
-		err = writeIndicesToFile(sa_path, suffix_array)
+		err = writeIndicesToFile(sa_path, unaligned_sa)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		fmt.Println("Suffix array already found, loading from disk")
-		suffix_array, err = readInt64FromFile(sa_path)
-		if err != nil {
-			return nil, err
-		}
+	}
+
+	// load aligned suffix array from disk
+	fmt.Println("Loading from disk")
+	suffix_array, err := readInt64FromFile(sa_path)
+	if err != nil {
+		return nil, err
 	}
 
 	return &ModelData{
