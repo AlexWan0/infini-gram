@@ -56,7 +56,6 @@ func arraySearch(suffix_array []int64, vec []byte, query []byte) (int64, int64) 
 
 func retrieve(suffix_array []int64, vec []byte, query []byte) []int64 {
 	// use binary search to find matching prefixes
-	// filter to only include ones that match byte boundaries
 	// return start positions of suffixes
 
 	start_idx, end_idx := arraySearch(suffix_array, vec, query)
@@ -69,9 +68,7 @@ func retrieve(suffix_array []int64, vec []byte, query []byte) []int64 {
 
 	for s := start_idx; s <= end_idx; s++ {
 		start_pos := suffix_array[s]
-		if start_pos%2 == 0 {
-			suffix_starts = append(suffix_starts, start_pos)
-		}
+		suffix_starts = append(suffix_starts, start_pos)
 	}
 
 	return suffix_starts
@@ -84,16 +81,7 @@ func retrieveNum(suffix_array []int64, vec []byte, query []byte) int {
 		return 0
 	}
 
-	num := 0
-
-	for s := start_idx; s <= end_idx; s++ {
-		start_pos := suffix_array[s]
-		if start_pos%2 == 0 {
-			num += 1
-		}
-	}
-
-	return num
+	return int(end_idx - start_idx + 1)
 }
 
 func retrieveSubstrings(suffix_array []int64, vec []byte, query []byte, extend int64) [][]byte {

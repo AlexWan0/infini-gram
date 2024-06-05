@@ -4,21 +4,41 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"io"
 	"os"
 )
 
-func writeInt64ToFile(filename string, value []int64) error {
+func writeIndicesToFile(filename string, indices_out []int64) error {
+	// writes the length followed by the values
+	// only writes even values (indices that align with byte boundaries)
+
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	length := int64(len(value))
-	if err = binary.Write(f, binary.LittleEndian, length); err != nil {
+	// write placeholder value for the length
+	if err = binary.Write(f, binary.LittleEndian, int64(0)); err != nil {
 		return err
 	}
-	if err = binary.Write(f, binary.LittleEndian, value); err != nil {
+
+	// write indices
+	length := 0
+	for _, v := range indices_out {
+		if v%2 == 0 { // if aligns with byte boundary
+			if err = binary.Write(f, binary.LittleEndian, v); err != nil {
+				return err
+			}
+			length++
+		}
+	}
+
+	// write the length
+	if _, err = f.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	if err = binary.Write(f, binary.LittleEndian, int64(length)); err != nil {
 		return err
 	}
 
