@@ -18,8 +18,11 @@ func writeIndicesToFile(filename string, indices_out []int64) error {
 	}
 	defer f.Close()
 
+	// create a buffered writer
+	buf_writer := bufio.NewWriter(f)
+
 	// write placeholder value for the length
-	if err = binary.Write(f, binary.LittleEndian, int64(0)); err != nil {
+	if err = binary.Write(buf_writer, binary.LittleEndian, int64(0)); err != nil {
 		return err
 	}
 
@@ -27,11 +30,16 @@ func writeIndicesToFile(filename string, indices_out []int64) error {
 	length := 0
 	for _, v := range indices_out {
 		if v%2 == 0 { // if aligns with byte boundary
-			if err = binary.Write(f, binary.LittleEndian, v); err != nil {
+			if err = binary.Write(buf_writer, binary.LittleEndian, v); err != nil {
 				return err
 			}
 			length++
 		}
+	}
+
+	// flush the buffer to write the data to the file
+	if err = buf_writer.Flush(); err != nil {
+		return err
 	}
 
 	// write the length
