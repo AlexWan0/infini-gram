@@ -4,7 +4,7 @@ import (
 	"infinigram/suffixarray"
 )
 
-func arraySearch(suffixArray []int64, vec []byte, query []byte) (int64, int64) {
+func binarySearch(suffixArray []int64, vec []byte, query []byte, left bool) int64 {
 	queryLen := int64(len(query))
 	saLen := int64(len(suffixArray))
 	vecLen := int64(len(vec))
@@ -17,41 +17,34 @@ func arraySearch(suffixArray []int64, vec []byte, query []byte) (int64, int64) {
 
 		cmpValue := compareSlices(midSlice, query)
 
-		if cmpValue < 0 {
+		cmpResult := cmpValue < 0
+		if !left {
+			cmpResult = cmpValue <= 0
+		}
+
+		if cmpResult {
 			start = mid + 1
 		} else {
 			end = mid
 		}
 	}
 
-	if start >= saLen {
+	return start
+}
+
+func arraySearch(suffixArray []int64, vec []byte, query []byte) (int64, int64) {
+	// bisect left; all values to the left are <, all values to the right are >=
+	occStart := binarySearch(suffixArray, vec, query, true)
+
+	// bisect right; all values to the left are <=, all values to the right are >
+	occEnd := binarySearch(suffixArray, vec, query, false)
+
+	// if the two indices are the same, the query is not present
+	if occStart == occEnd {
 		return -1, -1
 	}
 
-	startSlice := vec[suffixArray[start]:min(suffixArray[start]+queryLen, vecLen)]
-	if (start == saLen) || (compareSlices(startSlice, query) != 0) {
-		return -1, -1
-	}
-
-	firstOcc := start
-
-	end = saLen
-	for start < end {
-		mid := int64((start + end) / 2)
-		midSlice := vec[suffixArray[mid]:min(suffixArray[mid]+queryLen, vecLen)]
-
-		cmpValue := compareSlices(midSlice, query)
-
-		if (cmpValue == 0) || (cmpValue == -1) {
-			start = mid + 1
-		} else {
-			end = mid
-		}
-	}
-
-	lastOcc := start - 1
-
-	return firstOcc, lastOcc
+	return occStart, occEnd - 1
 }
 
 func retrieve(suffixArray []int64, vec []byte, query []byte) []int64 {
