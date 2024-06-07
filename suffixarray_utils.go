@@ -8,8 +8,8 @@ import (
 type SuffixArray interface {
 	numArrays() int
 	getArray(int) ([]int64, error)
-	retrieveNum([]byte, []byte) int
-	retrieveSubstrings([]byte, []byte, int64) [][]byte
+	retrieveNum(TokenArray, []byte) int
+	retrieveSubstrings(TokenArray, []byte, int64) [][]byte
 }
 
 type MultiSuffixArray struct {
@@ -31,7 +31,7 @@ func (msa *MultiSuffixArray) getArray(idx int) ([]int64, error) {
 	return suffixArray, nil
 }
 
-func (msa *MultiSuffixArray) retrieveNum(vec []byte, query []byte) int {
+func (msa *MultiSuffixArray) retrieveNum(vec TokenArray, query []byte) int {
 	// // debug; just use the first one
 	// arr, err := msa.getArray(0)
 	// if err != nil {
@@ -59,7 +59,7 @@ func (msa *MultiSuffixArray) retrieveNum(vec []byte, query []byte) int {
 	return numResults
 }
 
-func (msa *MultiSuffixArray) retrieveSubstrings(vec []byte, query []byte, extend int64) [][]byte {
+func (msa *MultiSuffixArray) retrieveSubstrings(vec TokenArray, query []byte, extend int64) [][]byte {
 	// debug; just use the first one
 	// arr, err := msa.getArray(0)
 	// if err != nil {
@@ -80,16 +80,16 @@ func (msa *MultiSuffixArray) retrieveSubstrings(vec []byte, query []byte, extend
 	return results
 }
 
-func binarySearch(suffixArray []int64, vec []byte, query []byte, left bool) int64 {
+func binarySearch(suffixArray []int64, vec TokenArray, query []byte, left bool) int64 {
 	queryLen := int64(len(query))
 	saLen := int64(len(suffixArray))
-	vecLen := int64(len(vec))
+	vecLen := vec.length()
 
 	start := int64(0)
 	end := saLen
 	for start < end {
 		mid := int64((start + end) / 2)
-		midSlice := vec[suffixArray[mid]:min(suffixArray[mid]+queryLen, vecLen)]
+		midSlice := vec.getSlice(suffixArray[mid], min(suffixArray[mid]+queryLen, vecLen))
 
 		cmpValue := compareSlices(midSlice, query)
 		// fmt.Println("bs", mid, midSlice, query, cmpValue)
@@ -110,7 +110,7 @@ func binarySearch(suffixArray []int64, vec []byte, query []byte, left bool) int6
 	return start
 }
 
-func arraySearch(suffixArray []int64, vec []byte, query []byte) (int64, int64) {
+func arraySearch(suffixArray []int64, vec TokenArray, query []byte) (int64, int64) {
 	// bisect left; all values to the left are <, all values to the right are >=
 	occStart := binarySearch(suffixArray, vec, query, true)
 
@@ -119,8 +119,8 @@ func arraySearch(suffixArray []int64, vec []byte, query []byte) (int64, int64) {
 
 	// if found, occStart is the first occurrence
 	queryLen := int64(len(query))
-	vecLen := int64(len(vec))
-	firstOcc := vec[suffixArray[occStart]:min(suffixArray[occStart]+queryLen, vecLen)]
+	vecLen := vec.length()
+	firstOcc := vec.getSlice(suffixArray[occStart], min(suffixArray[occStart]+queryLen, vecLen))
 	// fmt.Println("firstOcc", firstOcc, query)
 	if compareSlices(firstOcc, query) != 0 {
 		return -1, -1
@@ -141,7 +141,7 @@ func arraySearch(suffixArray []int64, vec []byte, query []byte) (int64, int64) {
 	return occStart, occEnd - 1
 }
 
-func retrieve(suffixArray []int64, vec []byte, query []byte) []int64 {
+func retrieve(suffixArray []int64, vec TokenArray, query []byte) []int64 {
 	// use binary search to find matching prefixes
 	// return start positions of suffixes
 
@@ -163,7 +163,7 @@ func retrieve(suffixArray []int64, vec []byte, query []byte) []int64 {
 	return suffixStarts
 }
 
-func retrieveNum(suffixArray []int64, vec []byte, query []byte) int {
+func retrieveNum(suffixArray []int64, vec TokenArray, query []byte) int {
 	startIdx, endIdx := arraySearch(suffixArray, vec, query)
 
 	if (startIdx == -1) && (endIdx == -1) {
@@ -173,7 +173,7 @@ func retrieveNum(suffixArray []int64, vec []byte, query []byte) int {
 	return int(endIdx - startIdx + 1)
 }
 
-func retrieveSubstrings(suffixArray []int64, vec []byte, query []byte, extend int64) [][]byte {
+func retrieveSubstrings(suffixArray []int64, vec TokenArray, query []byte, extend int64) [][]byte {
 	suffixStarts := retrieve(suffixArray, vec, query)
 
 	n_result := len(suffixStarts)
@@ -181,7 +181,7 @@ func retrieveSubstrings(suffixArray []int64, vec []byte, query []byte, extend in
 
 	resultSlices := make([][]byte, n_result)
 	for i, start := range suffixStarts {
-		resultSlices[i] = vec[start : start+queryLen+(extend*2)]
+		resultSlices[i] = vec.getSlice(start, start+queryLen+(extend*2))
 	}
 
 	return resultSlices

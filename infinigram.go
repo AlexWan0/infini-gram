@@ -13,7 +13,7 @@ import (
 
 type ModelData struct {
 	suffixArray SuffixArray
-	bytesData   []byte
+	bytesData   TokenArray
 	vocabSize   int
 }
 
@@ -152,11 +152,10 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 		fmt.Println("Tokenized data already found")
 	}
 
-	// load *entire* binary file into memory
-	// dataBytes, err := readBytesFromFile(dataPath)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	dataBytes, err := loadMemArray(dataPath)
+	if err != nil {
+		return nil, err
+	}
 
 	offset := int64(0)
 	currChunk := 0
