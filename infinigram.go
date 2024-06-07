@@ -164,13 +164,13 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 	if err == nil {
 		fmt.Println("Suffix array(s) already found")
 
-		saChunkPaths, err := readStringFromFile(saChunkPathsPath)
+		saChunkPathsStr, err := readStringFromFile(saChunkPathsPath)
 		if err != nil {
 			return nil, err
 		}
 
 		return &ModelData{
-			suffixArray: &MultiSuffixArray{strings.Split(saChunkPaths, "\n")},
+			suffixArray: makeMultiSuffixArray(strings.Split(saChunkPathsStr, "\n")),
 			bytesData:   dataBytes,
 			vocabSize:   vocabSize,
 		}, nil
@@ -244,7 +244,7 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 	// }
 
 	return &ModelData{
-		suffixArray: &MultiSuffixArray{saChunkPaths},
+		suffixArray: makeMultiSuffixArray(saChunkPaths),
 		bytesData:   dataBytes,
 		vocabSize:   vocabSize,
 	}, nil

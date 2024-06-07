@@ -14,6 +14,16 @@ type SuffixArray interface {
 
 type MultiSuffixArray struct {
 	suffixArrayPaths []string
+	loadedArray      []int64
+	loadedArrayIdx   int
+}
+
+func makeMultiSuffixArray(suffixArrayPaths []string) *MultiSuffixArray {
+	return &MultiSuffixArray{
+		suffixArrayPaths: suffixArrayPaths,
+		loadedArray:      nil,
+		loadedArrayIdx:   -1,
+	}
 }
 
 func (msa *MultiSuffixArray) numArrays() int {
@@ -21,14 +31,41 @@ func (msa *MultiSuffixArray) numArrays() int {
 }
 
 func (msa *MultiSuffixArray) getArray(idx int) ([]int64, error) {
+	if msa.loadedArrayIdx != -1 && msa.loadedArrayIdx == idx {
+		fmt.Printf("suffix array %d is cached\n", idx)
+		return msa.loadedArray, nil
+	}
+
 	saPath := msa.suffixArrayPaths[idx]
 
+	fmt.Printf("loading suffix array %d from %s\n", idx, saPath)
 	suffixArray, err := readInt64FromFile(saPath)
 	if err != nil {
 		return nil, err
 	}
 
+	msa.loadedArray = suffixArray
+	msa.loadedArrayIdx = idx
+
 	return suffixArray, nil
+}
+
+func (msa *MultiSuffixArray) getLoadOrder() []int {
+	defaultOrder := make([]int, msa.numArrays())
+	for i := 0; i < msa.numArrays(); i++ {
+		defaultOrder[i] = i
+	}
+
+	if msa.loadedArrayIdx == -1 {
+		return defaultOrder
+	}
+
+	// move the loaded array to the front
+	loadedIdx := msa.loadedArrayIdx
+	defaultOrder[0] = loadedIdx
+	defaultOrder[loadedIdx] = 0
+
+	return defaultOrder
 }
 
 func (msa *MultiSuffixArray) retrieveNum(vec TokenArray, query []byte) int {
@@ -38,9 +75,8 @@ func (msa *MultiSuffixArray) retrieveNum(vec TokenArray, query []byte) int {
 	// 	return 0 // TODO: handle error here
 	// }
 
-	numArrays := msa.numArrays()
 	numResults := 0
-	for i := 0; i < numArrays; i++ {
+	for _, i := range msa.getLoadOrder() {
 		arr, err := msa.getArray(i)
 		if err != nil {
 			return 0 // TODO: handle error here
@@ -70,9 +106,8 @@ func (msa *MultiSuffixArray) retrieveSubstrings(vec TokenArray, query []byte, ex
 	// }
 	// return retrieveSubstrings(arr, vec, query, extend)
 
-	numArrays := msa.numArrays()
 	results := make([][]byte, 0)
-	for i := 0; i < numArrays; i++ {
+	for _, i := range msa.getLoadOrder() {
 		arr, err := msa.getArray(i)
 		if err != nil {
 			return nil // TODO: handle error here
