@@ -25,7 +25,7 @@ type Prediction struct {
 	retrievedSuffixes [][]int
 }
 
-func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int) *Prediction {
+func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int, minMatches int) *Prediction {
 	vocabSize := m.vocabSize
 	suffixArray := m.suffixArray
 	dataBytes := m.bytesData
@@ -49,7 +49,7 @@ func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int) *Pre
 			// check if, at this length, we get any matches
 			numMatches := suffixArray.retrieveNum(dataBytes, querySuffixEnc)
 
-			if numMatches >= 1 {
+			if numMatches >= minMatches {
 				left = mid + 1
 			} else {
 				right = mid
@@ -92,12 +92,12 @@ func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int) *Pre
 	return &Prediction{distr, len(bestQueryEnc) / 2, total, numExtend, rawSuffixes}
 }
 
-func (m *ModelData) GenerateGreedy(queryIds []uint32, numNewTokens int) []uint32 {
+func (m *ModelData) GenerateGreedy(queryIds []uint32, numNewTokens, minMatches int) []uint32 {
 	result := make([]uint32, 0, len(queryIds)+numNewTokens)
 	result = append(result, queryIds...)
 
 	for i := 0; i < numNewTokens; i++ {
-		prediction := m.NextTokenDistribution(result, 1)
+		prediction := m.NextTokenDistribution(result, 1, minMatches)
 
 		if prediction.numRetrieved == 0 {
 			return result
@@ -110,14 +110,14 @@ func (m *ModelData) GenerateGreedy(queryIds []uint32, numNewTokens int) []uint32
 	return result
 }
 
-func (m *ModelData) GenerateGreedyStream(queryIds []uint32, numNewTokens int, generatedTokens chan<- []uint32) {
+func (m *ModelData) GenerateGreedyStream(queryIds []uint32, numNewTokens, minMatches int, generatedTokens chan<- []uint32) {
 	defer close(generatedTokens)
 
 	result := make([]uint32, 0, len(queryIds)+numNewTokens)
 	result = append(result, queryIds...)
 
 	for i := 0; i < numNewTokens; i++ {
-		prediction := m.NextTokenDistribution(result, 1)
+		prediction := m.NextTokenDistribution(result, 1, minMatches)
 
 		if prediction.numRetrieved == 0 {
 			return
@@ -216,8 +216,8 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 	}, nil
 }
 
-func InteractiveNextToken(queryIds []uint32, modelData *ModelData, tk *tokenizers.Tokenizer, top_k int) {
-	prediction := modelData.NextTokenDistribution(queryIds, 1)
+func InteractiveNextToken(queryIds []uint32, modelData *ModelData, tk *tokenizers.Tokenizer, top_k, minMatches int) {
+	prediction := modelData.NextTokenDistribution(queryIds, 1, minMatches)
 
 	if prediction.numRetrieved == 0 {
 		fmt.Println("No continuations found")
@@ -249,10 +249,10 @@ func InteractiveNextToken(queryIds []uint32, modelData *ModelData, tk *tokenizer
 	}
 }
 
-func InteractiveGenerateGreedy(queryIds []uint32, modelData *ModelData, tk *tokenizers.Tokenizer, numNewTokens int) {
+func InteractiveGenerateGreedy(queryIds []uint32, modelData *ModelData, tk *tokenizers.Tokenizer, numNewTokens, minMatches int) {
 	generated_tokens := make(chan []uint32, 8)
 
-	go modelData.GenerateGreedyStream(queryIds, numNewTokens, generated_tokens)
+	go modelData.GenerateGreedyStream(queryIds, numNewTokens, minMatches, generated_tokens)
 
 	for tkns := range generated_tokens {
 		fmt.Printf("====\n%s\n", tk.Decode(tkns, true))
@@ -269,6 +269,7 @@ func main() {
 		tokenizerConfig string
 		sentinalVal     int
 		sentinalSize    int
+		minMatches      int
 		topK            int
 		interactiveMode int
 		numGenerate     int
@@ -283,6 +284,8 @@ func main() {
 	flag.StringVar(&tokenizerConfig, "tokenizer_config", "tokenizer_gpt2.json", "Path to .json file containing tokenizer configuration")
 	flag.IntVar(&sentinalVal, "sentinal_val", 0, "Value to add at the end of every document")
 	flag.IntVar(&sentinalSize, "sentinal_size", 2, "Number of sentinals to add at the end of every document")
+	flag.IntVar(&minMatches, "min_matches", 1, "Minimum number of continuations needed for suffix to be valid")
+
 	flag.IntVar(&maxMem, "max_mem", 1024, "Maximum size (in MiB) of documents for each chunk")
 
 	flag.IntVar(&interactiveMode, "interactive_mode", 0, "0: print the top-k best next-token continuations 1: greedily generate k tokens")
@@ -334,9 +337,9 @@ func main() {
 		fmt.Println("encoded tokens:", en)
 
 		if interactiveMode == 0 {
-			InteractiveNextToken(en, &modelData, tk, topK)
+			InteractiveNextToken(en, &modelData, tk, topK, minMatches)
 		} else if interactiveMode == 1 {
-			InteractiveGenerateGreedy(en, &modelData, tk, numGenerate)
+			InteractiveGenerateGreedy(en, &modelData, tk, numGenerate, minMatches)
 		}
 	}
 }
