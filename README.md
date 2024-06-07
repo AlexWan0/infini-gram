@@ -1,5 +1,5 @@
 # Infini-gram implementation
-This repo contains two (unofficial) implementations of the infini-gram model described in [Liu et al. (2024)](https://arxiv.org/abs/2401.17377). This branch contains the Golang implementation.
+This repo contains two (unofficial) implementations of the infini-gram model described in [Liu et al. (2024)](https://arxiv.org/abs/2401.17377). This branch contains the Golang implementation. The `main` branch contains a Python implementation.
 
 The tokenizers used here are the [Go bindings to the official Rust library](https://github.com/daulet/tokenizers).
 
