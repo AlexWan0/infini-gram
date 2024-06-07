@@ -12,7 +12,7 @@ import (
 )
 
 type ModelData struct {
-	suffixArray []int64
+	suffixArray SuffixArray
 	bytesData   []byte
 	vocabSize   int
 }
@@ -30,35 +30,50 @@ func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int) *Pre
 	suffixArray := m.suffixArray
 	dataBytes := m.bytesData
 
-	// perform binary search to find longest suffix
-	left := 0
-	right := len(queryIds)
-
 	var bestQueryEnc []byte
 
-	for left <= right {
-		// the current candidate for the longest suffix length
-		mid := left + (right-left)/2
-		queryIdsSuffix := queryIds[len(queryIds)-mid:]
+	if len(queryIds) == 0 {
+		bestQueryEnc = make([]byte, 0)
+	} else {
+		// perform binary search to find longest suffix
+		left := 0
+		right := len(queryIds) + 1
+		// fmt.Println("aaaaa", left, right)
 
-		querySuffixEnc := intToByte(queryIdsSuffix)
+		for left < right {
+			// the current candidate for the longest suffix length
+			mid := (left + right) / 2
+			queryIdsSuffix := queryIds[len(queryIds)-mid:]
 
-		// check if, at this length, we get any matches
-		numMatches := retrieveNum(suffixArray, dataBytes, querySuffixEnc)
+			querySuffixEnc := intToByte(queryIdsSuffix)
 
-		if numMatches > 0 {
-			bestQueryEnc = querySuffixEnc
-			left = mid + 1
-		} else {
-			right = mid - 1
+			// check if, at this length, we get any matches
+			numMatches := suffixArray.retrieveNum(dataBytes, querySuffixEnc)
+
+			// fmt.Println("encoded", mid, queryIdsSuffix)
+			// fmt.Println("numMatches", numMatches)
+
+			if numMatches >= 1 {
+				left = mid + 1
+			} else {
+				right = mid
+			}
+
+			// fmt.Println("left", left)
+			// fmt.Println("right", right)
 		}
+
+		if left == 0 {
+			// TODO: i don't think this should happen
+			fmt.Println("none found")
+			return &Prediction{nil, -1, 0, numExtend, make([][]int, 0)}
+		}
+		best_n := left - 1
+
+		bestQueryEnc = intToByte(queryIds[len(queryIds)-best_n:])
 	}
 
-	if bestQueryEnc == nil {
-		return &Prediction{nil, -1, 0, numExtend, make([][]int, 0)}
-	}
-
-	substrings := retrieveSubstrings(suffixArray, dataBytes, bestQueryEnc, int64(numExtend))
+	substrings := suffixArray.retrieveSubstrings(dataBytes, bestQueryEnc, int64(numExtend))
 
 	rawSuffixes := make([][]int, len(substrings))
 	distr := make([]float32, vocabSize)
@@ -138,36 +153,73 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 	}
 
 	// load *entire* binary file into memory
-	dataBytes, err := readBytesFromFile(dataPath)
+	// dataBytes, err := readBytesFromFile(dataPath)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	offset := int64(0)
+	currChunk := 0
+	chunkBuffer := make([]byte, 1024)
+	saCallback := func(chunkLength int) error {
+		fmt.Printf("making chunk %d of size %d\n", currChunk, chunkLength)
+
+		readValues := chunkBuffer[:chunkLength]
+		// fmt.Println("a", readValues[:16])
+		// fmt.Println("a", dataBytes[offset:offset+16])
+
+		unalignedSa := createUnalignedSuffixArray(readValues)
+
+		// fmt.Println(chunkLength, slices.Max(unalignedSa), slices.Min(unalignedSa))
+
+		saChunkPath := path.Join(outpath, fmt.Sprintf("suffix_array_%d.bin", currChunk))
+		err = writeIndicesToFile(saChunkPath, unalignedSa, offset)
+		if err != nil {
+			return err
+		}
+
+		currChunk += 1
+		offset += int64(chunkLength)
+		// fmt.Println("offset", offset, len(dataBytes))
+		return nil
+	}
+	err = documentIter(dataPath, sentinalSize, sentinalVal, chunkBuffer, saCallback)
 	if err != nil {
 		return nil, err
+	}
+
+	// get list of filenames
+	numChunks := currChunk
+	saChunkPaths := make([]string, numChunks)
+	for i := 0; i < numChunks; i++ {
+		saChunkPaths[i] = path.Join(outpath, fmt.Sprintf("suffix_array_%d.bin", i))
 	}
 
 	// check whether suffix array already exists
-	saPath := path.Join(outpath, "suffix_array.bin")
-	_, err = os.Stat(saPath)
-	if err != nil {
-		// create suffix array, not all indices are aligned to byte boundaries
-		fmt.Println("Building suffix array")
-		unaligned_sa := createUnalignedSuffixArray(dataBytes)
+	// saPath := path.Join(outpath, "suffix_array.bin")
+	// _, err = os.Stat(saPath)
+	// if err != nil {
+	// 	// create suffix array, not all indices are aligned to byte boundaries
+	// 	fmt.Println("Building suffix array")
+	// 	unaligned_sa := createUnalignedSuffixArray(dataBytes)
 
-		// write to disk & filter for aligned indices
-		fmt.Println("Saving suffix array to disk")
-		err = writeIndicesToFile(saPath, unaligned_sa)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// 	// write to disk & filter for aligned indices
+	// 	fmt.Println("Saving suffix array to disk")
+	// 	err = writeIndicesToFile(saPath, unaligned_sa)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	// load aligned suffix array from disk
-	fmt.Println("Loading from disk")
-	suffixArray, err := readInt64FromFile(saPath)
-	if err != nil {
-		return nil, err
-	}
+	// fmt.Println("Loading from disk")
+	// suffixArray, err := readInt64FromFile(saPath)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &ModelData{
-		suffixArray: suffixArray,
+		suffixArray: &MultiSuffixArray{saChunkPaths},
 		bytesData:   dataBytes,
 		vocabSize:   vocabSize,
 	}, nil
@@ -230,6 +282,7 @@ func main() {
 		interactiveMode int
 		numGenerate     int
 		lineSplit       string
+		maxMem          int
 	)
 
 	flag.StringVar(&filename, "train_file", "", "Path to training data")
@@ -239,6 +292,7 @@ func main() {
 	flag.StringVar(&tokenizerConfig, "tokenizer_config", "tokenizer_gpt2.json", "Path to .json file containing tokenizer configuration")
 	flag.IntVar(&sentinalVal, "sentinal_val", 0, "Value to add at the end of every document")
 	flag.IntVar(&sentinalSize, "sentinal_size", 2, "Number of sentinals to add at the end of every document")
+	flag.IntVar(&maxMem, "max_mem", 1, "Maximum size (in GB) of documents for each chunk")
 
 	flag.IntVar(&interactiveMode, "interactive_mode", 0, "0: print the top-k best next-token continuations 1: greedily generate k tokens")
 	flag.IntVar(&topK, "top_k", 8, "Number of most frequent continuations to print during interactive mode 0")

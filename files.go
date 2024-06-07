@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 	"os"
 )
 
-func writeIndicesToFile(filename string, indicesOut []int64) error {
+func writeIndicesToFile(filename string, indicesOut []int64, offset int64) error {
 	// writes the length followed by the values
 	// only writes even values (indices that align with byte boundaries)
 
@@ -30,7 +31,7 @@ func writeIndicesToFile(filename string, indicesOut []int64) error {
 	length := 0
 	for _, v := range indicesOut {
 		if v%2 == 0 { // if aligns with byte boundary
-			if err = binary.Write(bufWriter, binary.LittleEndian, v); err != nil {
+			if err = binary.Write(bufWriter, binary.LittleEndian, v+offset); err != nil {
 				return err
 			}
 			length++
@@ -172,4 +173,138 @@ func numLines(filename string, lineBoundary string) (int, error) {
 		return nil
 	})
 	return counter, err
+}
+
+func documentIter(filename string, sentinalSize, sentinalValue int, chunk []byte, callback func(int) error) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	bufferSize := 128
+	if len(chunk) < bufferSize {
+		return errors.New("chunk smaller than read buffer")
+	}
+
+	reader := bufio.NewReader(file)
+	buffer := make([]byte, bufferSize)
+
+	chunkIdx := 0
+
+	callbackReset := func(chunkLength int) error {
+		lastSentinal := findLastSentinal(chunk, chunkLength, sentinalSize, sentinalValue)
+
+		// sentinal not found which means that there's a document
+		// larger than the chunk size
+		if lastSentinal == -1 {
+			return errors.New("chunk too small")
+		}
+
+		adjustedLength := lastSentinal + sentinalSize*2
+
+		err := callback(adjustedLength)
+		if err != nil {
+			return err
+		}
+
+		// copy the remaining bytes to the start of the chunk
+		copy(chunk, chunk[adjustedLength:chunkLength])
+
+		chunkIdx = chunkLength - adjustedLength
+
+		// fmt.Printf("added %d extra\n", chunkIdx)
+
+		return nil
+	}
+
+	for {
+		nread, err := reader.Read(buffer)
+		if err != nil {
+			if err.Error() == "EOF" {
+				if chunkIdx == 0 {
+					break
+				}
+
+				if !hasSentinal(chunk, chunkIdx, sentinalSize, sentinalValue) {
+					return errors.New("file does not end with sentinal")
+				}
+
+				err := callbackReset(chunkIdx)
+				if err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
+			break
+		}
+
+		if chunkIdx+nread > cap(chunk) {
+			err := callbackReset(chunkIdx)
+			if err != nil {
+				return err
+			}
+		}
+		copy(chunk[chunkIdx:], buffer[:nread])
+		chunkIdx += nread
+
+		// for i := 0; i < nread; i += 2 {
+		// 	if i+1 >= nread {
+		// 		break
+		// 	}
+
+		// 	if (chunkIdx + 1) >= cap(chunk) {
+		// 		return errors.New("chunk buffer too small")
+		// 	}
+
+		// 	chunk[chunkIdx] = buffer[i]
+		// 	chunk[chunkIdx+1] = buffer[i+1]
+
+		// 	chunkIdx += 2
+
+		// 	if hasSentinal(chunk, chunkIdx, sentinalSize, sentinalValue) {
+		// 		err := callbackReset(chunkIdx)
+		// 		if err != nil {
+		// 			return err
+		// 		}
+		// 	}
+		// }
+	}
+
+	return nil
+}
+
+func hasSentinal(values []byte, length, sentinalSize, sentinalValue int) bool {
+	if length < sentinalSize*2 {
+		return false
+	}
+
+	for j := 2; j <= sentinalSize*2; j += 2 {
+		valInt := binary.LittleEndian.Uint16(values[length-j : length-(j-2)])
+		if valInt != uint16(sentinalValue) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func findLastSentinal(values []byte, length, sentinalSize, sentinalValue int) int {
+	for i := length - sentinalSize*2; i >= 0; i -= 2 {
+		found := true
+		for j := 2; j <= sentinalSize*2; j += 2 {
+			valInt := binary.LittleEndian.Uint16(values[i+j-2 : i+j])
+			if valInt != uint16(sentinalValue) {
+				found = false
+				break
+			}
+		}
+
+		if found {
+			return i
+		}
+	}
+
+	return -1
 }
