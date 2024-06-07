@@ -69,25 +69,12 @@ func (msa *MultiSuffixArray) getLoadOrder() []int {
 }
 
 func (msa *MultiSuffixArray) retrieveNum(vec TokenArray, query []byte) int {
-	// // debug; just use the first one
-	// arr, err := msa.getArray(0)
-	// if err != nil {
-	// 	return 0 // TODO: handle error here
-	// }
-
 	numResults := 0
 	for _, i := range msa.getLoadOrder() {
 		arr, err := msa.getArray(i)
 		if err != nil {
 			return 0 // TODO: handle error here
 		}
-
-		// fmt.Println("---- arr", i, len(arr), "-----")
-		// for s := 0; s < len(arr); s++ {
-		// 	startPos := arr[s]
-		// 	fmt.Println(vec[startPos : startPos+2])
-		// }
-		// fmt.Println("--------------")
 
 		numResults += retrieveNum(arr, vec, query)
 		fmt.Printf("retrieved from chunk #%d: suffix_size=%d, occurrences=%d\n", i, len(query)/2, numResults)
@@ -99,13 +86,6 @@ func (msa *MultiSuffixArray) retrieveNum(vec TokenArray, query []byte) int {
 }
 
 func (msa *MultiSuffixArray) retrieveSubstrings(vec TokenArray, query []byte, extend int64) [][]byte {
-	// debug; just use the first one
-	// arr, err := msa.getArray(0)
-	// if err != nil {
-	// 	return nil // TODO: handle error here
-	// }
-	// return retrieveSubstrings(arr, vec, query, extend)
-
 	results := make([][]byte, 0)
 	for _, i := range msa.getLoadOrder() {
 		arr, err := msa.getArray(i)
@@ -130,9 +110,7 @@ func binarySearch(suffixArray []int64, vec TokenArray, query []byte, left bool) 
 		midSlice := vec.getSlice(suffixArray[mid], min(suffixArray[mid]+queryLen, vecLen))
 
 		cmpValue := compareSlices(midSlice, query)
-		// fmt.Println("bs", mid, midSlice, query, cmpValue)
 
-		// -1 -1 -1 0 0 0 1 1 1
 		cmpResult := cmpValue < 0
 		if !left {
 			cmpResult = cmpValue <= 0
@@ -152,24 +130,17 @@ func arraySearch(suffixArray []int64, vec TokenArray, query []byte) (int64, int6
 	// bisect left; all values to the left are <, all values to the right are >=
 	occStart := binarySearch(suffixArray, vec, query, true)
 
-	// fmt.Println("occStart", occStart)
-	// fmt.Println("query", query)
-
 	// if found, occStart is the first occurrence
 	queryLen := int64(len(query))
 	vecLen := vec.length()
 	firstOcc := vec.getSlice(suffixArray[occStart], min(suffixArray[occStart]+queryLen, vecLen))
-	// fmt.Println("firstOcc", firstOcc, query)
+
 	if compareSlices(firstOcc, query) != 0 {
 		return -1, -1
 	}
 
-	// fmt.Println("first", firstOcc)
-
 	// bisect right; all values to the left are <=, all values to the right are >
 	occEnd := binarySearch(suffixArray, vec, query, false)
-
-	// fmt.Println("occEnd", occEnd)
 
 	// if the two indices are the same, the query is not present
 	if occStart == occEnd {
@@ -191,11 +162,9 @@ func retrieve(suffixArray []int64, vec TokenArray, query []byte) []int64 {
 
 	suffixStarts := make([]int64, 0, endIdx-startIdx+1)
 
-	// fmt.Println("suffixes")
 	for s := startIdx; s <= endIdx; s++ {
 		startPos := suffixArray[s]
 		suffixStarts = append(suffixStarts, startPos)
-		// fmt.Println(vec[startPos : startPos+8])
 	}
 
 	return suffixStarts

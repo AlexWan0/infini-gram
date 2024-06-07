@@ -213,8 +213,6 @@ func documentIter(filename string, sentinalSize, sentinalValue int, chunk []byte
 
 		chunkIdx = chunkLength - adjustedLength
 
-		// fmt.Printf("added %d extra\n", chunkIdx)
-
 		return nil
 	}
 
@@ -248,28 +246,6 @@ func documentIter(filename string, sentinalSize, sentinalValue int, chunk []byte
 		}
 		copy(chunk[chunkIdx:], buffer[:nread])
 		chunkIdx += nread
-
-		// for i := 0; i < nread; i += 2 {
-		// 	if i+1 >= nread {
-		// 		break
-		// 	}
-
-		// 	if (chunkIdx + 1) >= cap(chunk) {
-		// 		return errors.New("chunk buffer too small")
-		// 	}
-
-		// 	chunk[chunkIdx] = buffer[i]
-		// 	chunk[chunkIdx+1] = buffer[i+1]
-
-		// 	chunkIdx += 2
-
-		// 	if hasSentinal(chunk, chunkIdx, sentinalSize, sentinalValue) {
-		// 		err := callbackReset(chunkIdx)
-		// 		if err != nil {
-		// 			return err
-		// 		}
-		// 	}
-		// }
 	}
 
 	return nil

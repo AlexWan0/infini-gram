@@ -38,7 +38,6 @@ func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int) *Pre
 		// perform binary search to find longest suffix
 		left := 0
 		right := len(queryIds) + 1
-		// fmt.Println("aaaaa", left, right)
 
 		for left < right {
 			// the current candidate for the longest suffix length
@@ -50,17 +49,11 @@ func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int) *Pre
 			// check if, at this length, we get any matches
 			numMatches := suffixArray.retrieveNum(dataBytes, querySuffixEnc)
 
-			// fmt.Println("encoded", mid, queryIdsSuffix)
-			// fmt.Println("numMatches", numMatches)
-
 			if numMatches >= 1 {
 				left = mid + 1
 			} else {
 				right = mid
 			}
-
-			// fmt.Println("left", left)
-			// fmt.Println("right", right)
 		}
 
 		if left == 0 {
@@ -184,12 +177,8 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 		fmt.Printf("making chunk %d of size %d\n", currChunk, chunkLength)
 
 		readValues := chunkBuffer[:chunkLength]
-		// fmt.Println("a", readValues[:16])
-		// fmt.Println("a", dataBytes[offset:offset+16])
 
 		unalignedSa := createUnalignedSuffixArray(readValues)
-
-		// fmt.Println(chunkLength, slices.Max(unalignedSa), slices.Min(unalignedSa))
 
 		saChunkPath := path.Join(outpath, fmt.Sprintf("suffix_array_%d.bin", currChunk))
 		err = writeIndicesToFile(saChunkPath, unalignedSa, offset)
@@ -199,7 +188,7 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 
 		currChunk += 1
 		offset += int64(chunkLength)
-		// fmt.Println("offset", offset, len(dataBytes))
+
 		return nil
 	}
 	err = documentIter(dataPath, sentinalSize, sentinalVal, chunkBuffer, saCallback)
@@ -219,29 +208,6 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 	if err != nil {
 		return nil, err
 	}
-
-	// check whether suffix array already exists
-	// saPath := path.Join(outpath, "suffix_array.bin")
-	// _, err = os.Stat(saPath)
-	// if err != nil {
-	// 	// create suffix array, not all indices are aligned to byte boundaries
-	// 	fmt.Println("Building suffix array")
-	// 	unaligned_sa := createUnalignedSuffixArray(dataBytes)
-
-	// 	// write to disk & filter for aligned indices
-	// 	fmt.Println("Saving suffix array to disk")
-	// 	err = writeIndicesToFile(saPath, unaligned_sa)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-
-	// load aligned suffix array from disk
-	// fmt.Println("Loading from disk")
-	// suffixArray, err := readInt64FromFile(saPath)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	return &ModelData{
 		suffixArray: makeMultiSuffixArray(saChunkPaths),
