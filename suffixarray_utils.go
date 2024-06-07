@@ -13,9 +13,6 @@ type SuffixArray interface {
 }
 
 type MultiSuffixArray struct {
-	// suffixArrayPaths []string
-	// loadedArray      []int64
-	// loadedArrayIdx   int
 	suffixArrays []SuffixArrayData
 }
 
@@ -37,22 +34,6 @@ func (msa *MultiSuffixArray) numArrays() int {
 }
 
 func (msa *MultiSuffixArray) getArray(idx int) (SuffixArrayData, error) {
-	// if msa.loadedArrayIdx != -1 && msa.loadedArrayIdx == idx {
-	// 	fmt.Printf("suffix array %d is cached\n", idx)
-	// 	return msa.loadedArray, nil
-	// }
-
-	// saPath := msa.suffixArrayPaths[idx]
-
-	// fmt.Printf("loading suffix array %d from %s\n", idx, saPath)
-	// suffixArray, err := readInt64FromFile(saPath)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// msa.loadedArray = suffixArray
-	// msa.loadedArrayIdx = idx
-
 	return msa.suffixArrays[idx], nil
 }
 
@@ -62,17 +43,6 @@ func (msa *MultiSuffixArray) getLoadOrder() []int {
 		defaultOrder[i] = i
 	}
 	return defaultOrder
-
-	// if msa.loadedArrayIdx == -1 {
-	// 	return defaultOrder
-	// }
-
-	// // move the loaded array to the front
-	// loadedIdx := msa.loadedArrayIdx
-	// defaultOrder[0] = loadedIdx
-	// defaultOrder[loadedIdx] = 0
-
-	// return defaultOrder
 }
 
 func (msa *MultiSuffixArray) retrieveNum(vec TokenArray, query []byte) int {
