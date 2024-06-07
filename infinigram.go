@@ -342,7 +342,7 @@ func main() {
 		sentinalSize,
 		nWorkers,
 		int(tk.VocabSize()),
-		maxMem*1024*1024*1024,
+		maxMem*1024*1024,
 	)
 	if err != nil {
 		panic(err)
@@ -365,7 +365,7 @@ func main() {
 
 		en, _ := tk.Encode(input, false)
 
-		fmt.Println(en)
+		fmt.Println("encoded tokens:", en)
 
 		if interactiveMode == 0 {
 			InteractiveNextToken(en, &modelData, tk, topK)

@@ -54,8 +54,11 @@ func (msa *MultiSuffixArray) retrieveNum(vec TokenArray, query []byte) int {
 		// fmt.Println("--------------")
 
 		numResults += retrieveNum(arr, vec, query)
-		fmt.Printf("%d: numResults=%d\n", i, numResults)
+		fmt.Printf("retrieved from chunk #%d: suffix_size=%d, occurrences=%d\n", i, len(query)/2, numResults)
 	}
+
+	fmt.Printf("suffix of size %d has %d total occurrences\n", len(query)/2, numResults)
+
 	return numResults
 }
 
