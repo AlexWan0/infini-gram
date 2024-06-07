@@ -152,7 +152,7 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 		fmt.Println("Tokenized data already found")
 	}
 
-	dataBytes, err := loadMemArray(dataPath)
+	dataBytes, err := loadMMappedArray(dataPath)
 	if err != nil {
 		return nil, err
 	}
