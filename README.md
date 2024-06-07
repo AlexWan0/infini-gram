@@ -25,8 +25,8 @@ where `corpus.txt` contains one document per line. `tokenizer.json` corresponds 
 
 This implementation features:
 * Next-token and greedy generation (`--interactive_mode {0,1}`)
-* `mmap` to access the tokenized documents without having to load the entire corpus into memory
-* Creating and inferencing on suffix arrays in chunks to further limit memory usage (`--max_mem`): you should hypothetically be able to train & infer on any sized corpus regardless of how much memory you have
+* `mmap` to access both the tokenized documents and the suffix array; memory usage during inference should be minimal.
+* Creating suffix arrays in chunks to further limit memory usage (`--max_mem`): you should hypothetically be able to train (and infer) on any sized corpus regardless of how much memory you have
 
 Run `./infinigram --help` for more information.
 
