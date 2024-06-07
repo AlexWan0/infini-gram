@@ -23,7 +23,12 @@ go build -ldflags "-s"
 
 where `corpus.txt` contains one document per line. `tokenizer.json` corresponds to the HuggingFace pretrained Tokenizers file (e.g., [for gpt2](https://huggingface.co/openai-community/gpt2/blob/main/tokenizer.json))
 
-The argument `--interactive_mode {0,1}` lets you query for next-token and greedy generation, respectively.
+This implementation features:
+* Next-token and greedy generation (`--interactive_mode {0,1}`)
+* `mmap` to access the tokenized documents without having to load the entire corpus into memory
+* Creating and inferencing on suffix arrays in chunks to further limit memory usage (`--max_mem`): you should hypothetically be able to train & infer on any sized corpus regardless of how much memory you have
+
+Run `./infinigram --help` for more information.
 
 # TODO
 - Compare with official API
