@@ -27,6 +27,7 @@ This implementation features:
 * Next-token and greedy generation (`--interactive_mode {0,1}`)
 * `mmap` to access both the tokenized documents and the suffix array; memory usage during inference should be minimal.
 * Creating suffix arrays in chunks to further limit memory usage (`--max_mem`): you should hypothetically be able to train (and infer) on any sized corpus regardless of how much memory you have
+* Set the minimum number of continuations needed a for suffix to be valid (`--min_matches`). e.g., you may set this at a value >= 2 to avoid sparse predictions where the $(n-1)$-gram corresponds to only a single document.
 
 Run `./infinigram --help` for more information.
 
