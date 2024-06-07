@@ -182,7 +182,7 @@ func documentIter(filename string, sentinalSize, sentinalValue int, chunk []byte
 	}
 	defer file.Close()
 
-	bufferSize := 128
+	bufferSize := 1024 * 1024 // 1mb
 	if len(chunk) < bufferSize {
 		return errors.New("chunk smaller than read buffer")
 	}
@@ -307,4 +307,27 @@ func findLastSentinal(values []byte, length, sentinalSize, sentinalValue int) in
 	}
 
 	return -1
+}
+
+func writeStringToFile(filename string, data string) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func readStringFromFile(filename string) (string, error) {
+	dataBytes, err := readBytesFromFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(dataBytes), nil
 }

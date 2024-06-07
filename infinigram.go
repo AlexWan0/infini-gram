@@ -137,7 +137,7 @@ func (m *ModelData) GenerateGreedyStream(queryIds []uint32, numNewTokens int, ge
 	}
 }
 
-func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, sentinalVal, sentinalSize, nWorkers, vocabSize int) (*ModelData, error) {
+func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, sentinalVal, sentinalSize, nWorkers, vocabSize, chunkSize int) (*ModelData, error) {
 	// check whether tokenized data already exists
 	dataPath := path.Join(outpath, "data.bin")
 	_, err := os.Stat(dataPath)
@@ -157,9 +157,29 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 		return nil, err
 	}
 
+	// check whether suffix array already exists
+	saChunkPathsPath := path.Join(outpath, "suffix_array_paths.txt")
+
+	_, err = os.Stat(saChunkPathsPath)
+	if err == nil {
+		fmt.Println("Suffix array(s) already found")
+
+		saChunkPaths, err := readStringFromFile(saChunkPathsPath)
+		if err != nil {
+			return nil, err
+		}
+
+		return &ModelData{
+			suffixArray: &MultiSuffixArray{strings.Split(saChunkPaths, "\n")},
+			bytesData:   dataBytes,
+			vocabSize:   vocabSize,
+		}, nil
+	}
+
+	fmt.Println("Creating suffix array(s)")
 	offset := int64(0)
 	currChunk := 0
-	chunkBuffer := make([]byte, 1024)
+	chunkBuffer := make([]byte, chunkSize)
 	saCallback := func(chunkLength int) error {
 		fmt.Printf("making chunk %d of size %d\n", currChunk, chunkLength)
 
@@ -192,6 +212,12 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 	saChunkPaths := make([]string, numChunks)
 	for i := 0; i < numChunks; i++ {
 		saChunkPaths[i] = path.Join(outpath, fmt.Sprintf("suffix_array_%d.bin", i))
+	}
+
+	// save list of filenames to disk
+	err = writeStringToFile(saChunkPathsPath, strings.Join(saChunkPaths, "\n"))
+	if err != nil {
+		return nil, err
 	}
 
 	// check whether suffix array already exists
@@ -316,6 +342,7 @@ func main() {
 		sentinalSize,
 		nWorkers,
 		int(tk.VocabSize()),
+		maxMem*1024*1024*1024,
 	)
 	if err != nil {
 		panic(err)
