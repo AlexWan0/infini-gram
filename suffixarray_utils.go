@@ -7,47 +7,53 @@ import (
 
 type SuffixArray interface {
 	numArrays() int
-	getArray(int) ([]int64, error)
+	getArray(int) (SuffixArrayData, error)
 	retrieveNum(TokenArray, []byte) int
 	retrieveSubstrings(TokenArray, []byte, int64) [][]byte
 }
 
 type MultiSuffixArray struct {
-	suffixArrayPaths []string
-	loadedArray      []int64
-	loadedArrayIdx   int
+	// suffixArrayPaths []string
+	// loadedArray      []int64
+	// loadedArrayIdx   int
+	suffixArrays []SuffixArrayData
 }
 
-func makeMultiSuffixArray(suffixArrayPaths []string) *MultiSuffixArray {
-	return &MultiSuffixArray{
-		suffixArrayPaths: suffixArrayPaths,
-		loadedArray:      nil,
-		loadedArrayIdx:   -1,
+func makeMultiSuffixArray(suffixArrayPaths []string) (*MultiSuffixArray, error) {
+	suffixArrays := make([]SuffixArrayData, len(suffixArrayPaths))
+	for i, path := range suffixArrayPaths {
+		newSA, err := makeMMappedSA(path)
+		if err != nil {
+			return nil, err
+		}
+		suffixArrays[i] = newSA
 	}
+
+	return &MultiSuffixArray{suffixArrays: suffixArrays}, nil
 }
 
 func (msa *MultiSuffixArray) numArrays() int {
-	return len(msa.suffixArrayPaths)
+	return len(msa.suffixArrays)
 }
 
-func (msa *MultiSuffixArray) getArray(idx int) ([]int64, error) {
-	if msa.loadedArrayIdx != -1 && msa.loadedArrayIdx == idx {
-		fmt.Printf("suffix array %d is cached\n", idx)
-		return msa.loadedArray, nil
-	}
+func (msa *MultiSuffixArray) getArray(idx int) (SuffixArrayData, error) {
+	// if msa.loadedArrayIdx != -1 && msa.loadedArrayIdx == idx {
+	// 	fmt.Printf("suffix array %d is cached\n", idx)
+	// 	return msa.loadedArray, nil
+	// }
 
-	saPath := msa.suffixArrayPaths[idx]
+	// saPath := msa.suffixArrayPaths[idx]
 
-	fmt.Printf("loading suffix array %d from %s\n", idx, saPath)
-	suffixArray, err := readInt64FromFile(saPath)
-	if err != nil {
-		return nil, err
-	}
+	// fmt.Printf("loading suffix array %d from %s\n", idx, saPath)
+	// suffixArray, err := readInt64FromFile(saPath)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	msa.loadedArray = suffixArray
-	msa.loadedArrayIdx = idx
+	// msa.loadedArray = suffixArray
+	// msa.loadedArrayIdx = idx
 
-	return suffixArray, nil
+	return msa.suffixArrays[idx], nil
 }
 
 func (msa *MultiSuffixArray) getLoadOrder() []int {
@@ -55,17 +61,18 @@ func (msa *MultiSuffixArray) getLoadOrder() []int {
 	for i := 0; i < msa.numArrays(); i++ {
 		defaultOrder[i] = i
 	}
-
-	if msa.loadedArrayIdx == -1 {
-		return defaultOrder
-	}
-
-	// move the loaded array to the front
-	loadedIdx := msa.loadedArrayIdx
-	defaultOrder[0] = loadedIdx
-	defaultOrder[loadedIdx] = 0
-
 	return defaultOrder
+
+	// if msa.loadedArrayIdx == -1 {
+	// 	return defaultOrder
+	// }
+
+	// // move the loaded array to the front
+	// loadedIdx := msa.loadedArrayIdx
+	// defaultOrder[0] = loadedIdx
+	// defaultOrder[loadedIdx] = 0
+
+	// return defaultOrder
 }
 
 func (msa *MultiSuffixArray) retrieveNum(vec TokenArray, query []byte) int {
@@ -98,16 +105,17 @@ func (msa *MultiSuffixArray) retrieveSubstrings(vec TokenArray, query []byte, ex
 	return results
 }
 
-func binarySearch(suffixArray []int64, vec TokenArray, query []byte, left bool) int64 {
+func binarySearch(suffixArray SuffixArrayData, vec TokenArray, query []byte, left bool) int64 {
 	queryLen := int64(len(query))
-	saLen := int64(len(suffixArray))
+	saLen := int64(suffixArray.length())
 	vecLen := vec.length()
 
 	start := int64(0)
 	end := saLen
 	for start < end {
 		mid := int64((start + end) / 2)
-		midSlice := vec.getSlice(suffixArray[mid], min(suffixArray[mid]+queryLen, vecLen))
+		midIdx := suffixArray.get(mid)
+		midSlice := vec.getSlice(midIdx, min(midIdx+queryLen, vecLen))
 
 		cmpValue := compareSlices(midSlice, query)
 
@@ -126,14 +134,15 @@ func binarySearch(suffixArray []int64, vec TokenArray, query []byte, left bool) 
 	return start
 }
 
-func arraySearch(suffixArray []int64, vec TokenArray, query []byte) (int64, int64) {
+func arraySearch(suffixArray SuffixArrayData, vec TokenArray, query []byte) (int64, int64) {
 	// bisect left; all values to the left are <, all values to the right are >=
 	occStart := binarySearch(suffixArray, vec, query, true)
 
 	// if found, occStart is the first occurrence
 	queryLen := int64(len(query))
 	vecLen := vec.length()
-	firstOcc := vec.getSlice(suffixArray[occStart], min(suffixArray[occStart]+queryLen, vecLen))
+	startIdx := suffixArray.get(occStart)
+	firstOcc := vec.getSlice(startIdx, min(startIdx+queryLen, vecLen))
 
 	if compareSlices(firstOcc, query) != 0 {
 		return -1, -1
@@ -150,7 +159,7 @@ func arraySearch(suffixArray []int64, vec TokenArray, query []byte) (int64, int6
 	return occStart, occEnd - 1
 }
 
-func retrieve(suffixArray []int64, vec TokenArray, query []byte) []int64 {
+func retrieve(suffixArray SuffixArrayData, vec TokenArray, query []byte) []int64 {
 	// use binary search to find matching prefixes
 	// return start positions of suffixes
 
@@ -163,14 +172,14 @@ func retrieve(suffixArray []int64, vec TokenArray, query []byte) []int64 {
 	suffixStarts := make([]int64, 0, endIdx-startIdx+1)
 
 	for s := startIdx; s <= endIdx; s++ {
-		startPos := suffixArray[s]
+		startPos := suffixArray.get(s)
 		suffixStarts = append(suffixStarts, startPos)
 	}
 
 	return suffixStarts
 }
 
-func retrieveNum(suffixArray []int64, vec TokenArray, query []byte) int {
+func retrieveNum(suffixArray SuffixArrayData, vec TokenArray, query []byte) int {
 	startIdx, endIdx := arraySearch(suffixArray, vec, query)
 
 	if (startIdx == -1) && (endIdx == -1) {
@@ -180,7 +189,7 @@ func retrieveNum(suffixArray []int64, vec TokenArray, query []byte) int {
 	return int(endIdx - startIdx + 1)
 }
 
-func retrieveSubstrings(suffixArray []int64, vec TokenArray, query []byte, extend int64) [][]byte {
+func retrieveSubstrings(suffixArray SuffixArrayData, vec TokenArray, query []byte, extend int64) [][]byte {
 	suffixStarts := retrieve(suffixArray, vec, query)
 
 	n_result := len(suffixStarts)

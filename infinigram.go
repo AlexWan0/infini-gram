@@ -162,8 +162,13 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 			return nil, err
 		}
 
+		suffixArray, err := makeMultiSuffixArray(strings.Split(saChunkPathsStr, "\n"))
+		if err != nil {
+			return nil, err
+		}
+
 		return &ModelData{
-			suffixArray: makeMultiSuffixArray(strings.Split(saChunkPathsStr, "\n")),
+			suffixArray: suffixArray,
 			bytesData:   dataBytes,
 			vocabSize:   vocabSize,
 		}, nil
@@ -209,8 +214,13 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 		return nil, err
 	}
 
+	suffixArray, err := makeMultiSuffixArray(saChunkPaths)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ModelData{
-		suffixArray: makeMultiSuffixArray(saChunkPaths),
+		suffixArray: suffixArray,
 		bytesData:   dataBytes,
 		vocabSize:   vocabSize,
 	}, nil
