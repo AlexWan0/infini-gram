@@ -317,7 +317,7 @@ func main() {
 	flag.StringVar(&tokenizerConfig, "tokenizer_config", "tokenizer_gpt2.json", "Path to .json file containing tokenizer configuration")
 	flag.IntVar(&sentinalVal, "sentinal_val", 0, "Value to add at the end of every document")
 	flag.IntVar(&sentinalSize, "sentinal_size", 2, "Number of sentinals to add at the end of every document")
-	flag.IntVar(&maxMem, "max_mem", 1, "Maximum size (in GB) of documents for each chunk")
+	flag.IntVar(&maxMem, "max_mem", 1024, "Maximum size (in MiB) of documents for each chunk")
 
 	flag.IntVar(&interactiveMode, "interactive_mode", 0, "0: print the top-k best next-token continuations 1: greedily generate k tokens")
 	flag.IntVar(&topK, "top_k", 8, "Number of most frequent continuations to print during interactive mode 0")
