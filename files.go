@@ -9,10 +9,14 @@ import (
 	"os"
 )
 
+// Writes the even indices into filename with offset added to each value.
+// For writing the suffix array indices to disk: only the even indices align
+// with byte boundaries.
+// Only even indices are written as the tokens are in uint16 format, but the
+// suffix array indices correspond to the location of the bytes.
+// The offset is needed as suffix arrays are constructed in chunks. But the
+// tokenized corpus is a continguous array.
 func writeIndicesToFile(filename string, indicesOut []int64, offset int64) error {
-	// writes the length followed by the values
-	// only writes even values (indices that align with byte boundaries)
-
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -109,7 +113,7 @@ func makeFolder(folderPath string) error {
 	return nil
 }
 
-// https://stackoverflow.com/a/57232670
+// Source: https://stackoverflow.com/a/57232670
 func splitAt(substring string) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	searchBytes := []byte(substring)
 	searchLen := len(searchBytes)
@@ -175,6 +179,10 @@ func numLines(filename string, lineBoundary string) (int, error) {
 	return counter, err
 }
 
+// Reads as many documents as possible (delineated by the sentinal) from filename into slice chunk.
+// Will try to read as many documents as possible into chunk, then call callback
+// with the length of the values read. The function callback is called everytime
+// the chunk is full.
 func documentIter(filename string, sentinalSize, sentinalValue int, chunk []byte, callback func(int) error) error {
 	file, err := os.Open(filename)
 	if err != nil {

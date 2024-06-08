@@ -21,7 +21,7 @@ go build -ldflags "-s"
 ./infinigram --train_file corpus.txt --out_dir output --tokenizer_config tokenizer.json
 ```
 
-where `corpus.txt` contains one document per line. `tokenizer.json` corresponds to the HuggingFace pretrained Tokenizers file (e.g., [for gpt2](https://huggingface.co/openai-community/gpt2/blob/main/tokenizer.json))
+where `corpus.txt` contains one document per line. `tokenizer.json` corresponds to the HuggingFace pretrained Tokenizers file (e.g., [for gpt2](https://huggingface.co/openai-community/gpt2/blob/main/tokenizer.json)).
 
 This implementation features:
 * Next-token and greedy generation (`--interactive_mode {0,1}`)
@@ -32,7 +32,7 @@ This implementation features:
 Run `./infinigram --help` for more information.
 
 # TODO
-- Compare with official API
+- ~~Compare with official API~~ Pile-val with the Llama-2 tokenizer seems to match.
 - Parallel inference
 - Use an external suffix array algo (e.g., [fSAIS](https://github.com/dominikkempa/fsais)) to build indices for larger datasets.
 

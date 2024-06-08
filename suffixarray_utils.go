@@ -6,16 +6,17 @@ import (
 )
 
 type SuffixArray interface {
-	numArrays() int
-	getArray(int) (SuffixArrayData, error)
-	retrieveNum(TokenArray, []byte) int
-	retrieveSubstrings(TokenArray, []byte, int64) [][]byte
+	retrieveNum(corpusVec TokenArray, query []byte) int                              // retrieve number of continuations
+	retrieveSubstrings(corpusVec TokenArray, query []byte, numExtend int64) [][]byte // retrieve all continuations
 }
 
+// Wrapper around suffix arrays corresponding to multiple chunks
+// of data. Will sum over the results of each chunk.
 type MultiSuffixArray struct {
-	suffixArrays []SuffixArrayData
+	suffixArrays []SuffixArrayData // suffix array for each chunk of documents
 }
 
+// Create a multi-suffix array from a list of suffix array paths.
 func makeMultiSuffixArray(suffixArrayPaths []string) (*MultiSuffixArray, error) {
 	suffixArrays := make([]SuffixArrayData, len(suffixArrayPaths))
 	for i, path := range suffixArrayPaths {
@@ -29,25 +30,20 @@ func makeMultiSuffixArray(suffixArrayPaths []string) (*MultiSuffixArray, error) 
 	return &MultiSuffixArray{suffixArrays: suffixArrays}, nil
 }
 
+// Retrieve the number of suffix arrays.
 func (msa *MultiSuffixArray) numArrays() int {
 	return len(msa.suffixArrays)
 }
 
+// Retrieve the suffix array for a given index.
 func (msa *MultiSuffixArray) getArray(idx int) (SuffixArrayData, error) {
 	return msa.suffixArrays[idx], nil
 }
 
-func (msa *MultiSuffixArray) getLoadOrder() []int {
-	defaultOrder := make([]int, msa.numArrays())
-	for i := 0; i < msa.numArrays(); i++ {
-		defaultOrder[i] = i
-	}
-	return defaultOrder
-}
-
+// Retrieve the number of continuations. Sums over results from each chunk.
 func (msa *MultiSuffixArray) retrieveNum(vec TokenArray, query []byte) int {
 	numResults := 0
-	for _, i := range msa.getLoadOrder() {
+	for i := 0; i < msa.numArrays(); i++ {
 		arr, err := msa.getArray(i)
 		if err != nil {
 			return 0 // TODO: handle error here
@@ -64,7 +60,7 @@ func (msa *MultiSuffixArray) retrieveNum(vec TokenArray, query []byte) int {
 
 func (msa *MultiSuffixArray) retrieveSubstrings(vec TokenArray, query []byte, extend int64) [][]byte {
 	results := make([][]byte, 0)
-	for _, i := range msa.getLoadOrder() {
+	for i := 0; i < msa.numArrays(); i++ {
 		arr, err := msa.getArray(i)
 		if err != nil {
 			return nil // TODO: handle error here
@@ -75,6 +71,7 @@ func (msa *MultiSuffixArray) retrieveSubstrings(vec TokenArray, query []byte, ex
 	return results
 }
 
+// Perform left or right binary search on the suffix array.
 func binarySearch(suffixArray SuffixArrayData, vec TokenArray, query []byte, left bool) int64 {
 	queryLen := int64(len(query))
 	saLen := int64(suffixArray.length())
@@ -104,6 +101,8 @@ func binarySearch(suffixArray SuffixArrayData, vec TokenArray, query []byte, lef
 	return start
 }
 
+// Search for the occurrences of a query in the suffix array.
+// Returns the starting and ending positions of the occurrences.
 func arraySearch(suffixArray SuffixArrayData, vec TokenArray, query []byte) (int64, int64) {
 	// bisect left; all values to the left are <, all values to the right are >=
 	occStart := binarySearch(suffixArray, vec, query, true)
@@ -129,10 +128,9 @@ func arraySearch(suffixArray SuffixArrayData, vec TokenArray, query []byte) (int
 	return occStart, occEnd - 1
 }
 
+// Uses binary search to find the occurrences of a query in the
+// suffix array. Returns the starting position of the occurences.
 func retrieve(suffixArray SuffixArrayData, vec TokenArray, query []byte) []int64 {
-	// use binary search to find matching prefixes
-	// return start positions of suffixes
-
 	startIdx, endIdx := arraySearch(suffixArray, vec, query)
 
 	if (startIdx == -1) && (endIdx == -1) {
@@ -149,6 +147,7 @@ func retrieve(suffixArray SuffixArrayData, vec TokenArray, query []byte) []int64
 	return suffixStarts
 }
 
+// Retrieve the number of occurrences of a query in the suffix array.
 func retrieveNum(suffixArray SuffixArrayData, vec TokenArray, query []byte) int {
 	startIdx, endIdx := arraySearch(suffixArray, vec, query)
 
@@ -159,6 +158,8 @@ func retrieveNum(suffixArray SuffixArrayData, vec TokenArray, query []byte) int 
 	return int(endIdx - startIdx + 1)
 }
 
+// Retrieve all occurrences of a query in the suffix array. The returned occurrences
+// are extended by extend tokens.
 func retrieveSubstrings(suffixArray SuffixArrayData, vec TokenArray, query []byte, extend int64) [][]byte {
 	suffixStarts := retrieve(suffixArray, vec, query)
 
@@ -173,6 +174,8 @@ func retrieveSubstrings(suffixArray SuffixArrayData, vec TokenArray, query []byt
 	return resultSlices
 }
 
+// Encode a sequence of integers into a byte array ending in the sentinal.
+// The sentinalVal is repeated sentinalSize times.
 func encodeSequence(valueBytes []byte, values []uint32, sentinalVal int, sentinalSize int) {
 	size := len(values)
 
@@ -185,10 +188,11 @@ func encodeSequence(valueBytes []byte, values []uint32, sentinalVal int, sentina
 	}
 }
 
+// Create a suffix array for a given byte array.
+// Each token is a uint16 value, so will take up two bytes. This means that
+// only even indices in the suffix array are valid. The unaligned suffix
+// array returned will contain odd values.
 func createUnalignedSuffixArray(valueBytes []byte) []int64 {
-	// not all indices in suffix array align with byte boundaries
-	// the non-aligned indices are filtered while writing to disk
-
 	suffixArray := make([]int64, len(valueBytes))
 	suffixarray.Text_64(valueBytes, suffixArray)
 

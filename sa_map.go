@@ -7,11 +7,13 @@ import (
 	"golang.org/x/exp/mmap"
 )
 
+// Wraps the suffix array.
 type SuffixArrayData interface {
-	get(int64) int64
+	get(index int64) int64
 	length() int64
 }
 
+// Loads the entire suffix array into memory.
 type MemSA struct {
 	data []int64
 }
@@ -35,6 +37,7 @@ func makeMemSA(filepath string) (*MemSA, error) {
 	return &MemSA{data: data}, nil
 }
 
+// Access the suffix array from a memory-mapped file.
 type MMappedSA struct {
 	mReader *mmap.ReaderAt
 }

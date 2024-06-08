@@ -56,6 +56,11 @@ func writeWorker(wg *sync.WaitGroup, filename string, results <-chan []byte) err
 	return nil
 }
 
+// Tokenize a file from filename using numWorkers processes and writes the
+// resulting tokenized data to outpath. The tokenizer configuration file path
+// is tokenizerConfig. The sentinal value is set by sentinalVal and sentinalSize
+// Ignores documents that are all whitespace. Tokens are in uint16 format.
+// Tokenized data is streamed directly to disk.
 func tokenizeMultiprocess(filename, docSplit, outpath, tokenizerConfig string, sentinalVal, sentinalSize, numWorkers int) (string, error) {
 	// Initialize output path
 	if err := makeFolder(outpath); err != nil {

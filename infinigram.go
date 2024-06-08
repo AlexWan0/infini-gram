@@ -11,20 +11,26 @@ import (
 	"infinigram/tokenizers"
 )
 
+// Wrapper around infini-gram model data.
 type ModelData struct {
 	suffixArray SuffixArray
 	bytesData   TokenArray
 	vocabSize   int
 }
 
+// Wrapper around infini-gram model predictions results.
 type Prediction struct {
-	distribution      []float32
-	effectiveN        int
-	numRetrieved      int
-	numExtend         int
-	retrievedSuffixes [][]int
+	distribution      []float32 // next-token probability distribution
+	effectiveN        int       // length of the longest suffix used
+	numRetrieved      int       // number of continuations retrieved
+	numExtend         int       // in the retrievedSuffixes, number of additional tokens added
+	retrievedSuffixes [][]int   // raw retrieved suffixes
 }
 
+// Will return the prediction of the next token distribution corresponding to the
+// longest suffix in queryIds. For a suffix to be considered valid, there must be
+// at least minMatches occurrences of it in the data. The retrieved suffixes will
+// include numExtend extra tokens (set to 1 to just get the next token).
 func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int, minMatches int) *Prediction {
 	vocabSize := m.vocabSize
 	suffixArray := m.suffixArray
@@ -92,6 +98,9 @@ func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int, minM
 	return &Prediction{distr, len(bestQueryEnc) / 2, total, numExtend, rawSuffixes}
 }
 
+// Will generate a sequence of numNewTokens tokens greedily using the longest matched
+// suffix. For a suffix to be considered valid, there must be at least minMatches
+// occurrences of it in the data. queryIds are the initial prompt tokens.
 func (m *ModelData) GenerateGreedy(queryIds []uint32, numNewTokens, minMatches int) []uint32 {
 	result := make([]uint32, 0, len(queryIds)+numNewTokens)
 	result = append(result, queryIds...)
@@ -110,6 +119,7 @@ func (m *ModelData) GenerateGreedy(queryIds []uint32, numNewTokens, minMatches i
 	return result
 }
 
+// Same as GenerateGreedy, but will send intermediate results to the generatedTokens
 func (m *ModelData) GenerateGreedyStream(queryIds []uint32, numNewTokens, minMatches int, generatedTokens chan<- []uint32) {
 	defer close(generatedTokens)
 
@@ -130,6 +140,13 @@ func (m *ModelData) GenerateGreedyStream(queryIds []uint32, numNewTokens, minMat
 	}
 }
 
+// Creates the tokenized corpus and suffix array, saves them to outpath, and returns
+// the model. If either the tokenized corpus or suffix array already exist, they will
+// be loaded from disk. Set sentinalVal and sentinalSize to split documents.
+// Tokenization is done in parallel using nWorkers. Set lineSplit to the token that
+// separates documents in the input file (filename). Set tokenizerConfig to the path
+// of the tokenizer configuration file. vocabSize is the size of the vocabulary.
+// Creates a suffix array for each chunk of documents of size chunkSize.
 func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, sentinalVal, sentinalSize, nWorkers, vocabSize, chunkSize int) (*ModelData, error) {
 	// check whether tokenized data already exists
 	dataPath := path.Join(outpath, "data.bin")
@@ -226,6 +243,9 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 	}, nil
 }
 
+// Given a sequence of tokens (queryIds) will print the top-k most likely continuations using
+// the longest possible suffix. The suffix must have at least minMatches occurrences in the data.
+// modelData and tk are the model and tokenizer, respectively.
 func InteractiveNextToken(queryIds []uint32, modelData *ModelData, tk *tokenizers.Tokenizer, top_k, minMatches int) {
 	prediction := modelData.NextTokenDistribution(queryIds, 1, minMatches)
 
@@ -259,6 +279,9 @@ func InteractiveNextToken(queryIds []uint32, modelData *ModelData, tk *tokenizer
 	}
 }
 
+// Given a sequence of tokens (queryIds) will greedily generate numNewTokens tokens using the
+// longest possible suffix. The suffix must have at least minMatches occurrences in the data.
+// modelData and tk are the model and tokenizer, respectively.
 func InteractiveGenerateGreedy(queryIds []uint32, modelData *ModelData, tk *tokenizers.Tokenizer, numNewTokens, minMatches int) {
 	generated_tokens := make(chan []uint32, 8)
 

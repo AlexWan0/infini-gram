@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Puts the value into the byte slice at the given index.
 func putByte(vec []byte, val uint16, idx int) {
 	binary.LittleEndian.PutUint16(vec[idx*2:], val)
 }
@@ -64,6 +65,8 @@ type Ordered interface {
 	~int | ~int64 | ~byte | ~float64 | ~string
 }
 
+// Compare whether a is before b lexographically.
+// Returns -1 if a < b, 0 if a == b, and 1 if a > b.
 func compareSlices[T Ordered](a, b []T) int {
 	n := min(len(a), len(b))
 	for i := 0; i < n; i++ {

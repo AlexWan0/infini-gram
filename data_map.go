@@ -6,11 +6,13 @@ import (
 	"golang.org/x/exp/mmap"
 )
 
+// Wraps the tokenized corpus file.
 type TokenArray interface {
-	getSlice(int64, int64) []byte
+	getSlice(start int64, stop int64) []byte
 	length() int64
 }
 
+// Loads the entire tokenized corpus into memory.
 type MemArray struct {
 	data []byte
 }
@@ -31,6 +33,7 @@ func loadMemArray(filepath string) (*MemArray, error) {
 	return &MemArray{data: dataBytes}, nil
 }
 
+// Access the tokenized corpus from a memory-mapped file.
 type MMappedArray struct {
 	mReader *mmap.ReaderAt
 }
