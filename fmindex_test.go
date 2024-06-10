@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-func tokenize(text string) ([]byte, error) {
+func tokenize(text string) ([]byte, int, error) {
 	tk, err := tokenizers.FromFile("data/tokenizer_llama2.json")
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 	defer tk.Close()
 
@@ -18,7 +18,7 @@ func tokenize(text string) ([]byte, error) {
 	fmt.Println("Text:", text)
 	fmt.Println("Encoded:", en)
 
-	return intToByte(en), nil
+	return intToByte(en), int(tk.VocabSize()), nil
 }
 
 // func TestRun(t *testing.T) {
@@ -82,7 +82,7 @@ func tokenize(text string) ([]byte, error) {
 // }
 
 func TestStruct(t *testing.T) {
-	basePath := "./data/wikitext_mini_4"
+	basePath := "./data/simpletest"
 	vecPath := basePath + "/data.bin"
 
 	fmt.Println("loading data")
@@ -90,25 +90,38 @@ func TestStruct(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println(memVec.data)
 
-	queryBytes, err := tokenize("the quick")
+	enc, vocabSize, err := tokenize("the quick")
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println("making suffix array")
 	sa := createUnalignedSuffixArray(memVec.data)
-	fmindex := makeFMIndex(sa, memVec.data)
+	fmindex := makeFMIndex(sa, memVec.data, vocabSize)
 
 	// save and load
 	fmindex.Save(basePath)
-	fmindex, err = loadFMIndex(basePath)
+	fmindex, err = loadFMIndex(basePath, vocabSize)
 	if err != nil {
 		panic(err)
 	}
 
 	// test retrieval
-	longestSuffix, numOcc := fmindex.GetLongestSuffix(queryBytes)
+	longestSuffix, numOcc := fmindex.GetLongestSuffix(enc)
 	fmt.Println("longestSuffix:", longestSuffix)
 	fmt.Println("numOcc:", numOcc)
+
+	// test next token
+	tk, err := tokenizers.FromFile("data/tokenizer_llama2.json")
+	if err != nil {
+		panic(err)
+	}
+	defer tk.Close()
+
+	en, _ := tk.Encode("the", false)
+	fmt.Println("encoded tokens:", en)
+
+	InteractiveNextToken(en, fmindex, tk, 16, 1)
 }

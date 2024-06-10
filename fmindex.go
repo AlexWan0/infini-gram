@@ -9,9 +9,10 @@ import (
 	wavelettree "github.com/sekineh/go-watrix"
 )
 
-type FMIndex struct {
-	tree   wavelettree.WaveletTree
-	counts [256]int64
+type FMIndexModel struct {
+	tree      wavelettree.WaveletTree
+	counts    [256]int64
+	vocabSize int
 }
 
 func saToBWT(sa []int64, vec []byte) ([]byte, [256]int64) {
@@ -74,13 +75,13 @@ func loadWaveletTree(filename string) (wavelettree.WaveletTree, error) {
 	return wt, nil
 }
 
-func getLongestSuffix(query []byte, counts [256]int64, wt wavelettree.WaveletTree) (int, uint64) {
+func getLongestSuffix(query []byte, counts [256]int64, wt wavelettree.WaveletTree, minMatches int) (int, uint64) {
 	countPrefixSum := make([]uint64, 256) // number of symbols before i
 	for i := 1; i < 256; i++ {
 		countPrefixSum[i] = countPrefixSum[i-1] + uint64(counts[i-1])
 	}
 
-	fmt.Println("symbol prefix sum", countPrefixSum)
+	// fmt.Println("symbol prefix sum", countPrefixSum)
 
 	index := len(query) - 1
 	currChar := query[index]
@@ -91,38 +92,52 @@ func getLongestSuffix(query []byte, counts [256]int64, wt wavelettree.WaveletTre
 	start, end := countPrefixSum[currChar], countPrefixSum[currChar]+uint64(counts[currChar])
 	count := end - start
 	pastCount := count
-	fmt.Printf("[%d, %d] idx=%d, currChar=%d\n", start, end, index, currChar)
+	// fmt.Printf("[%d, %d] idx=%d, currChar=%d\n", start, end, index, currChar)
+	longestSuffix := 1
 
 	index--
-	for count > 0 && index >= 0 {
+	for count >= uint64(minMatches) && index >= 0 {
 		currChar = query[index]
 
 		prevCounts := wt.Rank(start, uint64(currChar))
-		allCounts := wt.Rank(end+1, uint64(currChar))
+		allCounts := wt.Rank(end, uint64(currChar))
 		pastCount = count
 		count = allCounts - prevCounts
 
+		if count > uint64(minMatches) {
+			longestSuffix++
+		}
+
 		start = countPrefixSum[currChar] + prevCounts
 		end = start + count
-		fmt.Printf("[%d, %d] idx=%d, currChar=%d\n", start, end, index, currChar)
+		// fmt.Printf("[%d, %d] idx=%d, currChar=%d\n", start, end, index, currChar)
 
 		index--
 	}
 
-	return len(query) - index - 1, pastCount
+	return longestSuffix, pastCount
 }
 
-func makeFMIndex(sa []int64, vec []byte) *FMIndex {
+func makeFMIndex(sa []int64, vec []byte, vocabSize int) *FMIndexModel {
+	// for rowIdx, idx := range sa {
+	// 	fmt.Print(rowIdx, vec[idx:])
+	// 	if idx > 0 {
+	// 		fmt.Println("", vec[idx-1])
+	// 	} else {
+	// 		fmt.Println("", vec[len(vec)-1])
+	// 	}
+	// }
+
 	bwt, counts := saToBWT(sa, vec)
 	wt := makeWaveletTree(bwt)
-	return &FMIndex{wt, counts}
+	return &FMIndexModel{wt, counts, vocabSize}
 }
 
-func (bw *FMIndex) GetLongestSuffix(query []byte) (int, uint64) {
-	return getLongestSuffix(query, bw.counts, bw.tree)
+func (bw *FMIndexModel) GetLongestSuffix(query []byte) (int, uint64) {
+	return getLongestSuffix(query, bw.counts, bw.tree, 1)
 }
 
-func (bw *FMIndex) Save(filepath string) error {
+func (bw *FMIndexModel) Save(filepath string) error {
 	countsPath := filepath + "/counts.bin"
 	treePath := filepath + "/bwttree.bin"
 
@@ -144,7 +159,7 @@ func (bw *FMIndex) Save(filepath string) error {
 	return nil
 }
 
-func loadFMIndex(filepath string) (*FMIndex, error) {
+func loadFMIndex(filepath string, vocabSize int) (*FMIndexModel, error) {
 	countsPath := filepath + "/counts.bin"
 	treePath := filepath + "/bwttree.bin"
 
@@ -168,5 +183,44 @@ func loadFMIndex(filepath string) (*FMIndex, error) {
 		}
 	}
 
-	return &FMIndex{wt, counts}, nil
+	return &FMIndexModel{wt, counts, vocabSize}, nil
+}
+
+// Will return the prediction of the next token distribution corresponding to the
+// longest suffix in queryIds. For a suffix to be considered valid, there must be
+// at least minMatches occurrences of it in the data. The retrieved suffixes will
+// include numExtend extra tokens (set to 1 to just get the next token).
+func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, minMatches int) *Prediction {
+	// copy and append
+	newQueryIds := make([]uint32, len(queryIds)+1)
+	copy(newQueryIds, queryIds)
+	replIdx := len(queryIds)
+
+	effectiveNBytes, longestCount := m.GetLongestSuffix(intToByte(newQueryIds[:replIdx]))
+	fmt.Printf("longest suffix size=%d, count=%d\n", effectiveNBytes, longestCount)
+
+	rawSuffixes := make([][]int, 0, longestCount)
+	distr := make([]float32, m.vocabSize)
+	runningTotal := uint64(0)
+	for nextToken := uint32(0); nextToken < uint32(m.vocabSize); nextToken++ {
+		// fmt.Println("testing query:", newQueryIds)
+		newQueryIds[replIdx] = nextToken
+
+		querySuffixEnc := intToByte(newQueryIds)
+
+		suffixSize, count := getLongestSuffix(querySuffixEnc, m.counts, m.tree, minMatches)
+
+		if suffixSize == (effectiveNBytes + 2) {
+			fmt.Println("found suffix:", querySuffixEnc, "count:", count, "size:", suffixSize)
+			distr[nextToken] = float32(count) / float32(longestCount)
+			runningTotal += count
+			rawSuffixes = append(rawSuffixes, []int{int(nextToken)})
+		}
+
+		if runningTotal == longestCount {
+			break
+		}
+	}
+
+	return &Prediction{distr, effectiveNBytes / 2, int(longestCount), 1, rawSuffixes}
 }
