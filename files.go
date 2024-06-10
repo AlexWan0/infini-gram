@@ -78,6 +78,21 @@ func readBytesFromFile(filename string) ([]byte, error) {
 	return bytes, nil
 }
 
+func writeBytesToFile(filename string, data []byte) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func readInt64FromFile(filename string) ([]int64, error) {
 	f, err := os.Open(filename)
 	if err != nil {
