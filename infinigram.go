@@ -12,10 +12,14 @@ import (
 )
 
 // Wrapper around infini-gram model data.
-type ModelData struct {
+type SuffixArrayModel struct {
 	suffixArray SuffixArray
 	bytesData   TokenArray
 	vocabSize   int
+}
+
+type Model interface {
+	NextTokenDistribution(queryIds []uint32, numExtend int, minMatches int) *Prediction
 }
 
 // Wrapper around infini-gram model predictions results.
@@ -31,7 +35,7 @@ type Prediction struct {
 // longest suffix in queryIds. For a suffix to be considered valid, there must be
 // at least minMatches occurrences of it in the data. The retrieved suffixes will
 // include numExtend extra tokens (set to 1 to just get the next token).
-func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int, minMatches int) *Prediction {
+func (m *SuffixArrayModel) NextTokenDistribution(queryIds []uint32, numExtend int, minMatches int) *Prediction {
 	vocabSize := m.vocabSize
 	suffixArray := m.suffixArray
 	dataBytes := m.bytesData
@@ -101,7 +105,7 @@ func (m *ModelData) NextTokenDistribution(queryIds []uint32, numExtend int, minM
 // Will generate a sequence of numNewTokens tokens greedily using the longest matched
 // suffix. For a suffix to be considered valid, there must be at least minMatches
 // occurrences of it in the data. queryIds are the initial prompt tokens.
-func (m *ModelData) GenerateGreedy(queryIds []uint32, numNewTokens, minMatches int) []uint32 {
+func GenerateGreedy(m Model, queryIds []uint32, numNewTokens, minMatches int) []uint32 {
 	result := make([]uint32, 0, len(queryIds)+numNewTokens)
 	result = append(result, queryIds...)
 
@@ -120,7 +124,7 @@ func (m *ModelData) GenerateGreedy(queryIds []uint32, numNewTokens, minMatches i
 }
 
 // Same as GenerateGreedy, but will send intermediate results to the generatedTokens
-func (m *ModelData) GenerateGreedyStream(queryIds []uint32, numNewTokens, minMatches int, generatedTokens chan<- []uint32) {
+func GenerateGreedyStream(m Model, queryIds []uint32, numNewTokens, minMatches int, generatedTokens chan<- []uint32) {
 	defer close(generatedTokens)
 
 	result := make([]uint32, 0, len(queryIds)+numNewTokens)
@@ -147,7 +151,7 @@ func (m *ModelData) GenerateGreedyStream(queryIds []uint32, numNewTokens, minMat
 // separates documents in the input file (filename). Set tokenizerConfig to the path
 // of the tokenizer configuration file. vocabSize is the size of the vocabulary.
 // Creates a suffix array for each chunk of documents of size chunkSize.
-func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, sentinalVal, sentinalSize, nWorkers, vocabSize, chunkSize int) (*ModelData, error) {
+func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, sentinalVal, sentinalSize, nWorkers, vocabSize, chunkSize int) (*SuffixArrayModel, error) {
 	// check whether tokenized data already exists
 	dataPath := path.Join(outpath, "data.bin")
 	_, err := os.Stat(dataPath)
@@ -184,7 +188,7 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 			return nil, err
 		}
 
-		return &ModelData{
+		return &SuffixArrayModel{
 			suffixArray: suffixArray,
 			bytesData:   dataBytes,
 			vocabSize:   vocabSize,
@@ -236,7 +240,7 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 		return nil, err
 	}
 
-	return &ModelData{
+	return &SuffixArrayModel{
 		suffixArray: suffixArray,
 		bytesData:   dataBytes,
 		vocabSize:   vocabSize,
@@ -246,8 +250,8 @@ func InitializeModel(filename, lineSplit, outpath, tokenizerConfig string, senti
 // Given a sequence of tokens (queryIds) will print the top-k most likely continuations using
 // the longest possible suffix. The suffix must have at least minMatches occurrences in the data.
 // modelData and tk are the model and tokenizer, respectively.
-func InteractiveNextToken(queryIds []uint32, modelData *ModelData, tk *tokenizers.Tokenizer, top_k, minMatches int) {
-	prediction := modelData.NextTokenDistribution(queryIds, 1, minMatches)
+func InteractiveNextToken(queryIds []uint32, m Model, tk *tokenizers.Tokenizer, top_k, minMatches int) {
+	prediction := m.NextTokenDistribution(queryIds, 1, minMatches)
 
 	if prediction.numRetrieved == 0 {
 		fmt.Println("No continuations found")
@@ -282,10 +286,10 @@ func InteractiveNextToken(queryIds []uint32, modelData *ModelData, tk *tokenizer
 // Given a sequence of tokens (queryIds) will greedily generate numNewTokens tokens using the
 // longest possible suffix. The suffix must have at least minMatches occurrences in the data.
 // modelData and tk are the model and tokenizer, respectively.
-func InteractiveGenerateGreedy(queryIds []uint32, modelData *ModelData, tk *tokenizers.Tokenizer, numNewTokens, minMatches int) {
+func InteractiveGenerateGreedy(queryIds []uint32, m Model, tk *tokenizers.Tokenizer, numNewTokens, minMatches int) {
 	generated_tokens := make(chan []uint32, 8)
 
-	go modelData.GenerateGreedyStream(queryIds, numNewTokens, minMatches, generated_tokens)
+	go GenerateGreedyStream(m, queryIds, numNewTokens, minMatches, generated_tokens)
 
 	for tkns := range generated_tokens {
 		fmt.Printf("====\n%s\n", tk.Decode(tkns, true))
