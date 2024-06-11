@@ -4,13 +4,15 @@ This repo contains two (unofficial) implementations of the infini-gram model des
 The tokenizers used here are the [Go bindings to the official Rust library](https://github.com/daulet/tokenizers).
 
 # FM-Index
-This particular branch contains a WIP implementation of the infini-gram model using FM-indices instead of suffix arrays. FM-indices use significantly less disk while (hopefully) not sacrificing inference speed.
+This particular branch contains a WIP implementation of the infini-gram model using FM-indices + wavelet trees instead of suffix arrays. FM-indices use significantly less disk while (hopefully) not sacrificing inference speed.
+
+On my M1 Macbook Air 2020, each query for the next token distribution takes around ~1.5s regardless of the number of continuations that need to be retrieved and the corpus size. However, it takes significantly less space: ~500mb for Pile-val, compared ~800mb + ~3gb for the tokenized corpora and suffix array respectively (you don't need to store the tokenized corpora at all using FM-indices).
 
 Some todos:
 * ~~Current issue: making sure that the retrieved values respect byte boundaries.~~ fixed by using tokens directly instead of bytes; queries take longer though...
 * Ensure same functionality as before (`numExtend`, chunking not implemented)
 * Allow use of MMap with the wavelet trees
-* Possibly better implementatino of wavelet trees (e.g., with RRR?)
+* Possibly better implementation of wavelet trees (e.g., with RRR?)
 * Do BWT without constructing suffix array?
 
 # Build
@@ -33,6 +35,8 @@ go build -ldflags "-s"
 
 where `corpus.txt` contains one document per line. `tokenizer.json` corresponds to the HuggingFace pretrained Tokenizers file (e.g., [for gpt2](https://huggingface.co/openai-community/gpt2/blob/main/tokenizer.json)).
 
+Use the `--use_fm` flag to use the FM-index instead of suffix arrays.
+
 This implementation features:
 * Next-token and greedy generation (`--interactive_mode {0,1}`)
 * `mmap` to access both the tokenized documents and the suffix array; memory usage during inference should be minimal.
@@ -42,7 +46,7 @@ This implementation features:
 Run `./infinigram --help` for more information.
 
 # TODO
-- ~~Compare with official API~~ Pile-val with the Llama-2 tokenizer seems to match (using suffix arrays).
+- ~~Compare with official API~~ Pile-val with the Llama-2 tokenizer seems to match (with both suffix arrays and FM-Index).
 - Parallel inference
 - Use an external suffix array algo (e.g., [fSAIS](https://github.com/dominikkempa/fsais)) to build indices for larger datasets.
 
