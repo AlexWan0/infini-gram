@@ -316,6 +316,10 @@ func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, m
 	effectiveN, longestCount := getLongestSuffix(newQueryIds[:replIdx], m.counts, m.tree, minMatches)
 	fmt.Printf("longest suffix size=%d, count=%d\n", effectiveN, longestCount)
 
+	// timing
+	elapsed := time.Since(start)
+	fmt.Printf("Find longest (n-1)-gram elapsed time: %s\n", elapsed)
+
 	numWorkers := 8
 	nextTokenJobs := make(chan uint16)
 	results := make(chan *SuffixResult)
@@ -348,8 +352,8 @@ Outer:
 	accumRes := <-accumResult
 
 	// timing
-	elapsed := time.Since(start)
-	fmt.Printf("elapsed time: %s\n", elapsed)
+	elapsed = time.Since(start)
+	fmt.Printf("Retrieval elapsed time: %s\n", elapsed)
 
 	return &Prediction{accumRes.distr, effectiveN, int(longestCount), 1, accumRes.rawSuffixes}
 }

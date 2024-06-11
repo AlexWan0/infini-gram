@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 )
 
 // Wrapper around infini-gram model data.
@@ -19,6 +20,9 @@ type SuffixArrayModel struct {
 // at least minMatches occurrences of it in the data. The retrieved suffixes will
 // include numExtend extra tokens (set to 1 to just get the next token).
 func (m *SuffixArrayModel) NextTokenDistribution(queryIds []uint32, numExtend int, minMatches int) *Prediction {
+	// timing
+	start := time.Now()
+
 	vocabSize := m.vocabSize
 	suffixArray := m.suffixArray
 	dataBytes := m.bytesData
@@ -58,6 +62,8 @@ func (m *SuffixArrayModel) NextTokenDistribution(queryIds []uint32, numExtend in
 
 		bestQueryEnc = intToByte(queryIds[len(queryIds)-best_n:])
 	}
+	elapsed := time.Since(start)
+	fmt.Printf("Find longest (n-1)-gram elapsed time: %s\n", elapsed)
 
 	substrings := suffixArray.retrieveSubstrings(dataBytes, bestQueryEnc, int64(numExtend))
 
@@ -81,6 +87,10 @@ func (m *SuffixArrayModel) NextTokenDistribution(queryIds []uint32, numExtend in
 	for i := range distr {
 		distr[i] /= float32(total)
 	}
+
+	// timing
+	elapsed = time.Since(start)
+	fmt.Printf("Retrieval elapsed time: %s\n", elapsed)
 
 	return &Prediction{distr, len(bestQueryEnc) / 2, total, numExtend, rawSuffixes}
 }
