@@ -3,8 +3,10 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
+	"path"
 
 	wavelettree "github.com/sekineh/go-watrix"
 )
@@ -83,6 +85,8 @@ func getLongestSuffix(query []byte, counts [256]int64, wt wavelettree.WaveletTre
 
 	// fmt.Println("symbol prefix sum", countPrefixSum)
 
+	// fmt.Println("query encoded:", query)
+
 	index := len(query) - 1
 	currChar := query[index]
 	if counts[currChar] == 0 {
@@ -93,19 +97,27 @@ func getLongestSuffix(query []byte, counts [256]int64, wt wavelettree.WaveletTre
 	count := end - start
 	pastCount := count
 	// fmt.Printf("[%d, %d] idx=%d, currChar=%d\n", start, end, index, currChar)
-	longestSuffix := 1
+	longestSuffix := 0
 
 	index--
 	for count >= uint64(minMatches) && index >= 0 {
+		// character we should look for in the prev position
 		currChar = query[index]
 
+		// number of this character that we found
 		prevCounts := wt.Rank(start, uint64(currChar))
 		allCounts := wt.Rank(end, uint64(currChar))
-		pastCount = count
 		count = allCounts - prevCounts
 
-		if count > uint64(minMatches) {
-			longestSuffix++
+		// if count > uint64(counts[currChar]) {
+		// 	panic("count is greater than number of symbols")
+		// }
+
+		// we found a valid suffix and we're aligned with byte boundaries: update
+		if count >= uint64(minMatches) && index%2 == 0 {
+			longestSuffix += 2
+			pastCount = count
+			// fmt.Println("found longer", longestSuffix, index, pastCount)
 		}
 
 		start = countPrefixSum[currChar] + prevCounts
@@ -138,8 +150,8 @@ func (bw *FMIndexModel) GetLongestSuffix(query []byte) (int, uint64) {
 }
 
 func (bw *FMIndexModel) Save(filepath string) error {
-	countsPath := filepath + "/counts.bin"
-	treePath := filepath + "/bwttree.bin"
+	countsPath := path.Join(filepath, "counts.bin")
+	treePath := path.Join(filepath, "bwttree.bin")
 
 	err := saveWaveletTree(bw.tree, treePath)
 	if err != nil {
@@ -160,8 +172,8 @@ func (bw *FMIndexModel) Save(filepath string) error {
 }
 
 func loadFMIndex(filepath string, vocabSize int) (*FMIndexModel, error) {
-	countsPath := filepath + "/counts.bin"
-	treePath := filepath + "/bwttree.bin"
+	countsPath := path.Join(filepath, "counts.bin")
+	treePath := path.Join(filepath, "bwttree.bin")
 
 	wt, err := loadWaveletTree(treePath)
 	if err != nil {
@@ -190,6 +202,7 @@ func loadFMIndex(filepath string, vocabSize int) (*FMIndexModel, error) {
 // longest suffix in queryIds. For a suffix to be considered valid, there must be
 // at least minMatches occurrences of it in the data. The retrieved suffixes will
 // include numExtend extra tokens (set to 1 to just get the next token).
+// TODO: Only numExtend = 1 is implemented for now.
 func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, minMatches int) *Prediction {
 	// copy and append
 	newQueryIds := make([]uint32, len(queryIds)+1)
@@ -197,7 +210,7 @@ func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, m
 	replIdx := len(queryIds)
 
 	effectiveNBytes, longestCount := m.GetLongestSuffix(intToByte(newQueryIds[:replIdx]))
-	fmt.Printf("longest suffix size=%d, count=%d\n", effectiveNBytes, longestCount)
+	fmt.Printf("longest suffix size=%d, count=%d\n", effectiveNBytes/2, longestCount)
 
 	rawSuffixes := make([][]int, 0, longestCount)
 	distr := make([]float32, m.vocabSize)
@@ -211,7 +224,7 @@ func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, m
 		suffixSize, count := getLongestSuffix(querySuffixEnc, m.counts, m.tree, minMatches)
 
 		if suffixSize == (effectiveNBytes + 2) {
-			fmt.Println("found suffix:", querySuffixEnc, "count:", count, "size:", suffixSize)
+			// fmt.Println("found suffix:", querySuffixEnc, "count:", count, "size:", suffixSize)
 			distr[nextToken] = float32(count) / float32(longestCount)
 			runningTotal += count
 			rawSuffixes = append(rawSuffixes, []int{int(nextToken)})
@@ -223,4 +236,48 @@ func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, m
 	}
 
 	return &Prediction{distr, effectiveNBytes / 2, int(longestCount), 1, rawSuffixes}
+}
+
+func InitializeFMIndexModel(filename, lineSplit, outpath, tokenizerConfig string, sentinalVal, sentinalSize, nWorkers, vocabSize, chunkSize int) (*FMIndexModel, error) {
+	// check whether tokenized data already exists
+	dataPath := path.Join(outpath, "data.bin")
+	_, err := os.Stat(dataPath)
+	if err != nil {
+		// tokenize data: streams documents from text file into binary file
+		fmt.Println("Tokenizing data to disk")
+		_, err := tokenizeMultiprocess(filename, lineSplit, outpath, tokenizerConfig, sentinalVal, sentinalSize, nWorkers)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fmt.Println("Tokenized data already found")
+	}
+
+	fmt.Println("Creating suffix array")
+	fmt.Println("WARNING: will only use the first chunk; multiple chunks not implemented yet")
+	currChunk := 0
+	chunkBuffer := make([]byte, chunkSize)
+	var fmIndex *FMIndexModel
+	saCallback := func(chunkLength int) error {
+		if currChunk > 0 {
+			return errors.New("multiple chunks not implemented yet")
+		}
+		fmt.Printf("making chunk %d of size %d\n", currChunk, chunkLength)
+
+		readValues := chunkBuffer[:chunkLength]
+
+		unalignedSa := createUnalignedSuffixArray(readValues)
+
+		fmIndex = makeFMIndex(unalignedSa, readValues, vocabSize)
+
+		currChunk += 1
+
+		return nil
+	}
+	err = documentIter(dataPath, sentinalSize, sentinalVal, chunkBuffer, saCallback)
+	if err != nil {
+		return nil, err
+	}
+
+	return fmIndex, nil
 }

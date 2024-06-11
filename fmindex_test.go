@@ -82,7 +82,7 @@ func tokenize(text string) ([]byte, int, error) {
 // }
 
 func TestStruct(t *testing.T) {
-	basePath := "./data/simpletest"
+	basePath := "./data/aaaa"
 	vecPath := basePath + "/data.bin"
 
 	fmt.Println("loading data")
@@ -90,9 +90,9 @@ func TestStruct(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(memVec.data)
+	// fmt.Println(memVec.data)
 
-	enc, vocabSize, err := tokenize("the quick")
+	enc, vocabSize, err := tokenize("tree")
 	if err != nil {
 		panic(err)
 	}
@@ -101,27 +101,29 @@ func TestStruct(t *testing.T) {
 	sa := createUnalignedSuffixArray(memVec.data)
 	fmindex := makeFMIndex(sa, memVec.data, vocabSize)
 
+	fmt.Println(getLongestSuffix(enc, fmindex.counts, fmindex.tree, 1))
+
 	// save and load
-	fmindex.Save(basePath)
-	fmindex, err = loadFMIndex(basePath, vocabSize)
-	if err != nil {
-		panic(err)
-	}
+	// fmindex.Save(basePath)
+	// fmindex, err = loadFMIndex(basePath, vocabSize)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	// test retrieval
-	longestSuffix, numOcc := fmindex.GetLongestSuffix(enc)
-	fmt.Println("longestSuffix:", longestSuffix)
-	fmt.Println("numOcc:", numOcc)
+	// // test retrieval
+	// longestSuffix, numOcc := fmindex.GetLongestSuffix(enc)
+	// fmt.Println("longestSuffix:", longestSuffix)
+	// fmt.Println("numOcc:", numOcc)
 
-	// test next token
-	tk, err := tokenizers.FromFile("data/tokenizer_llama2.json")
-	if err != nil {
-		panic(err)
-	}
-	defer tk.Close()
+	// // test next token
+	// tk, err := tokenizers.FromFile("data/tokenizer_llama2.json")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer tk.Close()
 
-	en, _ := tk.Encode("the", false)
-	fmt.Println("encoded tokens:", en)
+	// en, _ := tk.Encode("the", false)
+	// fmt.Println("encoded tokens:", en)
 
-	InteractiveNextToken(en, fmindex, tk, 16, 1)
+	// InteractiveNextToken(en, fmindex, tk, 16, 1)
 }

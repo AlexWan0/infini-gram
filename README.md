@@ -3,6 +3,15 @@ This repo contains two (unofficial) implementations of the infini-gram model des
 
 The tokenizers used here are the [Go bindings to the official Rust library](https://github.com/daulet/tokenizers).
 
+# FM-Index
+This particular branch contains a WIP implementation of the infini-gram model using FM-indices instead of suffix arrays. FM-indices use significantly less disk while (hopefully) not sacrificing inference speed.
+
+Some todos:
+* Ensure same functionality as before (`numExtend`, chunking not implemented)
+* Allow use of MMap with the wavelet trees
+* Possibly better implementatino of wavelet trees (e.g., with RRR?)
+* Do BWT without constructing suffix array?
+
 # Build
 First, build the rust tokenizers binary:
 ```bash
