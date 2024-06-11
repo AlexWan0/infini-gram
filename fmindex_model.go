@@ -196,6 +196,21 @@ func (bw *FMIndexModel) Save(filepath string) error {
 	return nil
 }
 
+func FMExists(filepath string) bool {
+	countsPath := path.Join(filepath, "counts.bin")
+	treePath := path.Join(filepath, "bwttree.bin")
+
+	if _, err := os.Stat(countsPath); err != nil {
+		return false
+	}
+
+	if _, err := os.Stat(treePath); err != nil {
+		return false
+	}
+
+	return true
+}
+
 func loadFMIndex(filepath string, vocabSize int) (*FMIndexModel, error) {
 	countsPath := path.Join(filepath, "counts.bin")
 	treePath := path.Join(filepath, "bwttree.bin")
@@ -354,6 +369,12 @@ func InitializeFMIndexModel(filename, lineSplit, outpath, tokenizerConfig string
 		fmt.Println("Tokenized data already found")
 	}
 
+	if FMExists(outpath) {
+		fmt.Println("FMIndex already found; loading...")
+		return loadFMIndex(outpath, vocabSize)
+	}
+
+	fmt.Println("FMIndex not found; creating new one")
 	fmt.Println("Creating suffix array")
 	fmt.Println("WARNING: will only use the first chunk; multiple chunks not implemented yet")
 	currChunk := 0
