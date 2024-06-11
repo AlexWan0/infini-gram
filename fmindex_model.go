@@ -234,7 +234,7 @@ func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, m
 	}
 	replIdx := len(queryIds)
 
-	effectiveN, longestCount := m.GetLongestSuffix(newQueryIds[:replIdx])
+	effectiveN, longestCount := getLongestSuffix(newQueryIds[:replIdx], m.counts, m.tree, minMatches)
 	fmt.Printf("longest suffix size=%d, count=%d\n", effectiveN, longestCount)
 
 	rawSuffixes := make([][]int, 0, longestCount)
