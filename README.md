@@ -7,6 +7,7 @@ The tokenizers used here are the [Go bindings to the official Rust library](http
 This particular branch contains a WIP implementation of the infini-gram model using FM-indices instead of suffix arrays. FM-indices use significantly less disk while (hopefully) not sacrificing inference speed.
 
 Some todos:
+* Current issue: making sure that the retrieved values respect byte boundaries.
 * Ensure same functionality as before (`numExtend`, chunking not implemented)
 * Allow use of MMap with the wavelet trees
 * Possibly better implementatino of wavelet trees (e.g., with RRR?)
@@ -41,7 +42,7 @@ This implementation features:
 Run `./infinigram --help` for more information.
 
 # TODO
-- ~~Compare with official API~~ Pile-val with the Llama-2 tokenizer seems to match.
+- ~~Compare with official API~~ Pile-val with the Llama-2 tokenizer seems to match (using suffix arrays).
 - Parallel inference
 - Use an external suffix array algo (e.g., [fSAIS](https://github.com/dominikkempa/fsais)) to build indices for larger datasets.
 
