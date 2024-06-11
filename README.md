@@ -4,9 +4,11 @@ This repo contains two (unofficial) implementations of the infini-gram model des
 The tokenizers used here are the [Go bindings to the official Rust library](https://github.com/daulet/tokenizers).
 
 # FM-Index
-This particular branch contains a WIP implementation of the infini-gram model using FM-indices + wavelet trees instead of suffix arrays. FM-indices use significantly less disk while (hopefully) not sacrificing inference speed.
+This particular branch contains a WIP implementation of the infini-gram model using FM-indices + wavelet trees instead of suffix arrays. FM-indices use significantly less disk space while (hopefully) not sacrificing inference speed.
 
-On my M1 Macbook Air 2020, each query for the next token distribution takes around ~1.5s regardless of the number of continuations that need to be retrieved and the corpus size. However, it takes significantly less space: ~500mb for Pile-val, compared ~800mb + ~3gb for the tokenized corpora and suffix array respectively (you don't need to store the tokenized corpora at all using FM-indices).
+On my M1 Macbook Air 2020, each query for the next token distribution takes around ~1.5s regardless of the number of continuations that need to be retrieved and the corpus size. The main bottleneck is that you can only efficiently query for *preceding* tokens given a suffix, so to create the full next token distribution we need to query every vocabulary item. However, just checking for whether an n-gram exists does not run into this issue, and is much faster.
+
+The main advantage of the FM-index, though, is that it takes significantly less space: ~500mb for Pile-val, compared ~800mb + ~3gb for the tokenized corpora and suffix array respectively (you don't need to store the tokenized corpora at all using FM-indices).
 
 Some todos:
 * ~~Current issue: making sure that the retrieved values respect byte boundaries.~~ fixed by using tokens directly instead of bytes; queries take longer though...
