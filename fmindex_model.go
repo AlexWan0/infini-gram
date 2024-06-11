@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sync"
+	"time"
 
 	wavelettree "github.com/sekineh/go-watrix"
 )
@@ -221,12 +223,74 @@ func loadFMIndex(filepath string, vocabSize int) (*FMIndexModel, error) {
 	return &FMIndexModel{wt, counts, vocabSize}, nil
 }
 
+type SuffixResult struct {
+	suffixSize int
+	count      uint64
+	nextToken  uint16
+}
+
+func checkSuffixWorker(wg *sync.WaitGroup, m *FMIndexModel, minMatches int, queryIds []uint16, replIdx int, nextTokenJobs <-chan uint16, results chan<- *SuffixResult, quit <-chan bool) {
+	defer wg.Done()
+
+	queryIdsCopy := make([]uint16, len(queryIds))
+	copy(queryIdsCopy, queryIds)
+	for nextToken := range nextTokenJobs {
+		select {
+		case <-quit:
+			return
+		default:
+			queryIdsCopy[replIdx] = nextToken
+			suffixSize, count := getLongestSuffix(queryIdsCopy, m.counts, m.tree, minMatches)
+			results <- &SuffixResult{suffixSize, count, nextToken}
+		}
+	}
+}
+
+type AccumResult struct {
+	distr       []float32
+	rawSuffixes [][]int
+}
+
+func accumWorker(longestCount uint64, vocabSize int, effectiveN int, results <-chan *SuffixResult, accumResult chan<- *AccumResult, quit chan<- bool, numWorkers int) {
+	rawSuffixes := make([][]int, 0, longestCount)
+	distr := make([]float32, vocabSize)
+	runningTotal := 0
+
+	sentQuit := false
+	for res := range results {
+		if sentQuit {
+			continue
+		}
+
+		if runningTotal >= int(longestCount) {
+			for i := 0; i < numWorkers; i++ {
+				quit <- true
+			}
+			sentQuit = true
+
+			continue
+		}
+
+		if res.suffixSize == (effectiveN + 1) {
+			distr[res.nextToken] += float32(res.count) / float32(longestCount)
+			rawSuffixes = append(rawSuffixes, []int{int(res.nextToken)})
+
+			runningTotal += int(res.count)
+		}
+	}
+
+	accumResult <- &AccumResult{distr, rawSuffixes}
+}
+
 // Will return the prediction of the next token distribution corresponding to the
 // longest suffix in queryIds. For a suffix to be considered valid, there must be
 // at least minMatches occurrences of it in the data. The retrieved suffixes will
 // include numExtend extra tokens (set to 1 to just get the next token).
 // TODO: Only numExtend = 1 is implemented for now.
 func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, minMatches int) *Prediction {
+	// timing
+	start := time.Now()
+
 	// copy and append
 	newQueryIds := make([]uint16, len(queryIds)+1)
 	for i, x := range queryIds {
@@ -237,30 +301,42 @@ func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, m
 	effectiveN, longestCount := getLongestSuffix(newQueryIds[:replIdx], m.counts, m.tree, minMatches)
 	fmt.Printf("longest suffix size=%d, count=%d\n", effectiveN, longestCount)
 
-	rawSuffixes := make([][]int, 0, longestCount)
-	distr := make([]float32, m.vocabSize)
-	runningTotal := uint64(0)
+	numWorkers := 8
+	nextTokenJobs := make(chan uint16)
+	results := make(chan *SuffixResult)
+	quitChannel := make(chan bool, numWorkers+1)
+	accumResult := make(chan *AccumResult)
+
+	wgWorkers := &sync.WaitGroup{}
+
+	for w := 0; w < numWorkers; w++ {
+		wgWorkers.Add(1)
+		go checkSuffixWorker(wgWorkers, m, minMatches, newQueryIds, replIdx, nextTokenJobs, results, quitChannel)
+	}
+
+	go accumWorker(longestCount, m.vocabSize, effectiveN, results, accumResult, quitChannel, numWorkers)
+
+Outer:
 	for nextToken := uint16(0); nextToken < uint16(m.vocabSize); nextToken++ {
-		// fmt.Println("testing query:", newQueryIds)
-		newQueryIds[replIdx] = nextToken
-
-		// querySuffixEnc := intToByte(newQueryIds)
-
-		suffixSize, count := getLongestSuffix(newQueryIds, m.counts, m.tree, minMatches)
-
-		if suffixSize == (effectiveN + 1) {
-			// fmt.Println("found suffix:", querySuffixEnc, "count:", count, "size:", suffixSize)
-			distr[nextToken] = float32(count) / float32(longestCount)
-			runningTotal += count
-			rawSuffixes = append(rawSuffixes, []int{int(nextToken)})
-		}
-
-		if runningTotal == longestCount {
-			break
+		select {
+		case <-quitChannel:
+			break Outer
+		default:
+			nextTokenJobs <- nextToken
 		}
 	}
 
-	return &Prediction{distr, effectiveN, int(longestCount), 1, rawSuffixes}
+	close(nextTokenJobs)
+	wgWorkers.Wait()
+
+	close(results)
+	accumRes := <-accumResult
+
+	// timing
+	elapsed := time.Since(start)
+	fmt.Printf("elapsed time: %s\n", elapsed)
+
+	return &Prediction{accumRes.distr, effectiveN, int(longestCount), 1, accumRes.rawSuffixes}
 }
 
 func InitializeFMIndexModel(filename, lineSplit, outpath, tokenizerConfig string, sentinalVal, sentinalSize, nWorkers, vocabSize, chunkSize int) (*FMIndexModel, error) {
