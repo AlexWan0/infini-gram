@@ -7,7 +7,7 @@ The tokenizers used here are the [Go bindings to the official Rust library](http
 This particular branch contains a WIP implementation of the infini-gram model using FM-indices instead of suffix arrays. FM-indices use significantly less disk while (hopefully) not sacrificing inference speed.
 
 Some todos:
-* Current issue: making sure that the retrieved values respect byte boundaries.
+* ~~Current issue: making sure that the retrieved values respect byte boundaries.~~ fixed by using tokens directly instead of bytes; queries take longer though...
 * Ensure same functionality as before (`numExtend`, chunking not implemented)
 * Allow use of MMap with the wavelet trees
 * Possibly better implementatino of wavelet trees (e.g., with RRR?)

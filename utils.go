@@ -53,6 +53,17 @@ func byteToInt(vec []byte) []int {
 	return result
 }
 
+func byteToUInt16(vec []byte) []uint16 {
+	n := len(vec) / 2
+	result := make([]uint16, n)
+
+	for i := 0; i < n; i++ {
+		result[i] = binary.LittleEndian.Uint16(vec[i*2:])
+	}
+
+	return result
+}
+
 func printsVec(vec []int) string {
 	strVals := make([]string, len(vec))
 	for i, num := range vec {
@@ -110,4 +121,10 @@ func argmax(vec []float32) int {
 		}
 	}
 	return maxIdx
+}
+
+func changeEndianness16(vec []byte) {
+	for i := 0; i < len(vec); i += 2 {
+		vec[i], vec[i+1] = vec[i+1], vec[i]
+	}
 }

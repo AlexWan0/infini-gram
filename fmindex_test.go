@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func tokenize(text string) ([]byte, int, error) {
+func tokenize(text string) ([]uint16, int, error) {
 	tk, err := tokenizers.FromFile("data/tokenizer_llama2.json")
 	if err != nil {
 		return nil, -1, err
@@ -18,7 +18,12 @@ func tokenize(text string) ([]byte, int, error) {
 	fmt.Println("Text:", text)
 	fmt.Println("Encoded:", en)
 
-	return intToByte(en), int(tk.VocabSize()), nil
+	en16 := make([]uint16, len(en))
+	for i, v := range en {
+		en16[i] = uint16(v)
+	}
+
+	return en16, int(tk.VocabSize()), nil
 }
 
 // func TestRun(t *testing.T) {
@@ -98,6 +103,8 @@ func TestStruct(t *testing.T) {
 	}
 
 	fmt.Println("making suffix array")
+
+	changeEndianness16(memVec.data)
 	sa := createUnalignedSuffixArray(memVec.data)
 	fmindex := makeFMIndex(sa, memVec.data, vocabSize)
 
