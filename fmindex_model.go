@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/schollz/progressbar/v3"
 	wavelettree "github.com/sekineh/go-watrix"
 )
 
@@ -35,6 +36,7 @@ func saToBWT(sa SuffixArrayData, vec TokenArray) ([]uint16, [NUM_SYMBOLS]int64) 
 	bwtBack := make([]uint16, 0)
 	symbCount := [NUM_SYMBOLS]int64{}
 
+	bar := progressbar.Default(sa.length()) // not accurate
 	for i := int64(0); i < sa.length(); i++ {
 		suffixIdx := sa.get(i)
 		if suffixIdx%2 == 1 {
@@ -43,25 +45,33 @@ func saToBWT(sa SuffixArrayData, vec TokenArray) ([]uint16, [NUM_SYMBOLS]int64) 
 
 		// fmt.Println(counter, vec[suffixIdx:suffixIdx+2], binary.BigEndian.Uint16(vec[suffixIdx:suffixIdx+2]))
 
+		// we have two ranges: suffixIdx - 2 to suffixIdx and suffixIdx to suffixIdx + 2
+		// if this range is continuous, we can make a single call to getSlice
+		// otherwise, we need to make two calls
+		var backData []byte
+		var frontData []byte
 		backIdx := suffixIdx - 2
 		if backIdx < 0 {
 			backIdx += int64(vec.length())
+
+			backData = vec.getSlice(backIdx, backIdx+2)
+			frontData = vec.getSlice(suffixIdx, suffixIdx+2)
+		} else {
+			bothData := vec.getSlice(backIdx, backIdx+4)
+			backData = bothData[:2]
+			frontData = bothData[2:]
 		}
 
 		// vec[backIdx : backIdx+2]
-		backSymbol16 := binary.BigEndian.Uint16(vec.getSlice(backIdx, backIdx+2))
+		backSymbol16 := binary.BigEndian.Uint16(backData)
 		bwtBack = append(bwtBack, backSymbol16)
 		// fmt.Println(backSymbol16)
-	}
 
-	for i := int64(0); i < vec.length(); i += 2 {
-		symb16 := binary.BigEndian.Uint16(vec.getSlice(i, i+2))
-		// fmt.Print(symb16, " ")
-		symbCount[symb16]++
-	}
-	// fmt.Println()
+		frontSymbol16 := binary.BigEndian.Uint16(frontData)
+		symbCount[frontSymbol16]++
 
-	// fmt.Println("bwt", bwtBack)
+		bar.Add(1)
+	}
 
 	return bwtBack, symbCount
 }
@@ -413,7 +423,7 @@ func InitializeFMIndexModel(filename, lineSplit, outpath, tokenizerConfig string
 			return nil, err
 		}
 
-		dataBytes, err := loadMMappedArray(dataPath)
+		dataBytes, err := loadMemArray(dataPath)
 		if err != nil {
 			return nil, err
 		}
