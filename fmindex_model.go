@@ -43,7 +43,7 @@ func saToBWT(sa SuffixArrayData, vec TokenArray) ([]uint16, [NUM_SYMBOLS]int64, 
 	cache := NewBitCache()
 
 	fmt.Println("Constructing BWT and cache")
-	bar := progressbar.Default(sa.length()) // not accurate
+	bar := progressbar.Default(-1)
 	for i := int64(0); i < sa.length(); i++ {
 		suffixIdx := sa.get(i)
 		if suffixIdx%2 == 1 {
