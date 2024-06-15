@@ -84,6 +84,7 @@ func saToBWT(sa SuffixArrayData, vec TokenArray) (wavelettree.WaveletTree, [NUM_
 		bar.Add(1)
 	}
 
+	fmt.Println("Building wavelet tree")
 	wt := builder.Build()
 
 	return wt, symbCount, cache
