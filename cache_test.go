@@ -2,6 +2,7 @@ package main
 
 import (
 	"math/rand"
+	"os"
 	"testing"
 )
 
@@ -35,5 +36,36 @@ func TestBasic(t *testing.T) {
 		if cache.HasValue(dataNeg[i], dataNeg[i+1]) {
 			t.Errorf("Expected to not find value at index %d", i)
 		}
+	}
+
+	// test save and load
+	testPath := "test.bin"
+
+	// panic if file already exists
+	_, err := os.Stat(testPath)
+	if err == nil {
+		panic("test file already exists")
+	}
+
+	err = cache.Save(testPath)
+	if err != nil {
+		t.Error(err)
+	}
+
+	cache2, err := LoadBitCache(testPath)
+	if err != nil {
+		t.Error(err)
+	}
+
+	for i := 0; i < 1000; i += 2 {
+		if !cache2.HasValue(data[i], data[i+1]) {
+			t.Errorf("Expected to find value at index %d", i)
+		}
+	}
+
+	// clean up
+	err = os.Remove(testPath)
+	if err != nil {
+		panic(err)
 	}
 }
