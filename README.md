@@ -16,6 +16,7 @@ Some todos:
 * Allow use of MMap with the wavelet trees
 * Possibly better implementation of wavelet trees (e.g., with RRR?)
 * Do BWT without constructing suffix array?
+* Document retrieval: add document ID to sentinal; during inference, recursively find the previous token until you get the sentinal + document ID for the *previous* document. Then, you can start working backwards from the document ID + 1. At the cost of space, you could sprinkle in the document ID uniformly throughout your tokenized corpus.
 
 # Build
 First, build the rust tokenizers binary:
