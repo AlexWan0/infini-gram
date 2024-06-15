@@ -7,6 +7,10 @@ import (
 	"golang.org/x/exp/mmap"
 )
 
+const (
+	MMAP_INT_WIDTH = 8
+)
+
 // Wraps the suffix array.
 type SuffixArrayData interface {
 	get(index int64) int64
@@ -45,7 +49,7 @@ type MMappedSA struct {
 func (msa *MMappedSA) get(idx int64) int64 {
 	dest := make([]byte, 8)
 
-	_, err := msa.mReader.ReadAt(dest, idx*8)
+	_, err := msa.mReader.ReadAt(dest[:MMAP_INT_WIDTH], idx*MMAP_INT_WIDTH)
 
 	if err != nil {
 		// the regular array also throws an error if EOF, so that
@@ -64,13 +68,15 @@ func (msa *MMappedSA) get(idx int64) int64 {
 }
 
 func (msa *MMappedSA) length() int64 {
+	// fmt.Println("length of suffix array is", msa.mReader.Len())
+
 	lengthBytes := int64(msa.mReader.Len())
 
-	if lengthBytes%8 != 0 {
-		panic("suffix array is not a multiple of 8 bytes")
+	if lengthBytes%MMAP_INT_WIDTH != 0 {
+		panic(fmt.Sprintf("suffix array length is not a multiple of %d", MMAP_INT_WIDTH))
 	}
 
-	return lengthBytes / 8
+	return lengthBytes / MMAP_INT_WIDTH
 }
 
 func makeMMappedSA(filepath string) (*MMappedSA, error) {
