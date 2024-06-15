@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
+	wavelettree "github.com/AlexWan0/go-watrix"
 	"github.com/schollz/progressbar/v3"
-	wavelettree "github.com/sekineh/go-watrix"
 )
 
 const (
@@ -90,12 +90,7 @@ func saToBWT(sa SuffixArrayData, vec TokenArray) (wavelettree.WaveletTree, [NUM_
 }
 
 func saveWaveletTree(wt wavelettree.WaveletTree, filename string) error {
-	wtBytes, err := wt.MarshalBinary()
-	if err != nil {
-		return err
-	}
-
-	err = writeBytesToFile(filename, wtBytes)
+	err := wt.MarshalBinaryFile(filename)
 	if err != nil {
 		return err
 	}
@@ -104,13 +99,8 @@ func saveWaveletTree(wt wavelettree.WaveletTree, filename string) error {
 }
 
 func loadWaveletTree(filename string) (wavelettree.WaveletTree, error) {
-	wtBytes, err := readBytesFromFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
 	wt := wavelettree.New()
-	err = wt.UnmarshalBinary(wtBytes)
+	err := wt.UnmarshalBinaryFile(filename)
 	if err != nil {
 		return nil, err
 	}

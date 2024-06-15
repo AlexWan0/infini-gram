@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/AlexWan0/go-watrix v0.0.0-20240615073205-f3916dbbb876 // indirect
 	github.com/Workiva/go-datastructures v1.1.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hillbig/rsdic v0.0.0-20150805052524-6158e7a2d824 // indirect
