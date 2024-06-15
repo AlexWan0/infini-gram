@@ -202,6 +202,8 @@ func makeFMIndex(sa SuffixArrayData, vec TokenArray, vocabSize int) *FMIndexMode
 	// }
 
 	bwt, counts, cache := saToBWT(sa, vec)
+
+	fmt.Println("Making wavelet tree")
 	wt := makeWaveletTree(bwt)
 	return &FMIndexModel{wt, counts, vocabSize, cache}
 }
