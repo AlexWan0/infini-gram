@@ -387,6 +387,8 @@ func InitializeFMIndexModel(filename, lineSplit, outpath, tokenizerConfig string
 	fmt.Println("FMIndex not found; creating new one")
 	fmt.Println("WARNING: multiple chunks not implemented yet")
 
+	var fmIndex *FMIndexModel
+
 	// check whether suffix arrays already exist
 	saChunkPathsPath := path.Join(outpath, "suffix_array_paths.txt")
 
@@ -414,17 +416,20 @@ func InitializeFMIndexModel(filename, lineSplit, outpath, tokenizerConfig string
 			return nil, err
 		}
 
-		return makeFMIndex(
+		fmIndex = makeFMIndex(
 			suffixArray,
 			dataBytes,
 			vocabSize,
-		), nil
+		)
+
+		fmIndex.Save(outpath)
+
+		return fmIndex, nil
 	}
 
 	fmt.Println("Creating suffix array")
 	currChunk := 0
 	chunkBuffer := make([]byte, chunkSize)
-	var fmIndex *FMIndexModel
 	saCallback := func(chunkLength int) error {
 		if currChunk > 0 {
 			return errors.New("multiple chunks not implemented yet")
