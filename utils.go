@@ -123,16 +123,20 @@ func argmax(vec []float32) int {
 	return maxIdx
 }
 
-func changeEndianness16(vec []byte) {
+func changeEndb16(vec []byte) {
 	for i := 0; i < len(vec); i += 2 {
 		vec[i], vec[i+1] = vec[i+1], vec[i]
 	}
 }
 
-func changeUint16Endianness(num []uint16) []uint16 {
+func changeEndUint16(n uint16) uint16 {
+	return (n << 8) | (n >> 8)
+}
+
+func changeEndUint16Vec(num []uint16) []uint16 {
 	num_flip := make([]uint16, len(num))
 	for i := 0; i < len(num); i++ {
-		num_flip[i] = (num[i] << 8) | (num[i] >> 8)
+		num_flip[i] = changeEndUint16(num[i])
 	}
 	return num_flip
 }
