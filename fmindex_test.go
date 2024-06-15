@@ -106,7 +106,8 @@ func TestStruct(t *testing.T) {
 
 	changeEndianness16(memVec.data)
 	sa := createUnalignedSuffixArray(memVec.data)
-	fmindex := makeFMIndex(sa, memVec.data, vocabSize)
+	memSA := &MemSA{data: sa}
+	fmindex := makeFMIndex(memSA, memVec, vocabSize)
 
 	fmt.Println(getLongestSuffix(enc, fmindex.counts, fmindex.tree, 1))
 

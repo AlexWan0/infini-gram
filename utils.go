@@ -128,3 +128,11 @@ func changeEndianness16(vec []byte) {
 		vec[i], vec[i+1] = vec[i+1], vec[i]
 	}
 }
+
+func changeUint16Endianness(num []uint16) []uint16 {
+	num_flip := make([]uint16, len(num))
+	for i := 0; i < len(num); i++ {
+		num_flip[i] = (num[i] << 8) | (num[i] >> 8)
+	}
+	return num_flip
+}

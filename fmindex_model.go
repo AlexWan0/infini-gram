@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,15 +24,19 @@ type FMIndexModel struct {
 	vocabSize int
 }
 
-func saToBWT(sa []int64, vec []byte) ([]uint16, [NUM_SYMBOLS]int64) {
-	if len(sa)%2 != 0 {
-		panic("suffix array length must be even")
-	}
-	bwtBack := make([]uint16, len(sa)/2)
+// vec is expected to be little endian & the suffix array is expected to sort
+// based on the little endian-encoded values. But, converting back to uin16
+// would disrupt this ordering. So, we instead pretend that our data is big
+// Endian and convert it back to little endian when we need to.
+// In the current implementation, we don't even need to convert it back because
+// we only query for the longest suffix size & its count.
+// TODO: stream the result to disk
+func saToBWT(sa SuffixArrayData, vec TokenArray) ([]uint16, [NUM_SYMBOLS]int64) {
+	bwtBack := make([]uint16, 0)
 	symbCount := [NUM_SYMBOLS]int64{}
 
-	counter := 0
-	for _, suffixIdx := range sa {
+	for i := int64(0); i < sa.length(); i++ {
+		suffixIdx := sa.get(i)
 		if suffixIdx%2 == 1 {
 			continue
 		}
@@ -40,18 +45,17 @@ func saToBWT(sa []int64, vec []byte) ([]uint16, [NUM_SYMBOLS]int64) {
 
 		backIdx := suffixIdx - 2
 		if backIdx < 0 {
-			backIdx += int64(len(vec))
+			backIdx += int64(vec.length())
 		}
 
-		backSymbol16 := binary.BigEndian.Uint16(vec[backIdx : backIdx+2])
-		bwtBack[counter] = backSymbol16
+		// vec[backIdx : backIdx+2]
+		backSymbol16 := binary.BigEndian.Uint16(vec.getSlice(backIdx, backIdx+2))
+		bwtBack = append(bwtBack, backSymbol16)
 		// fmt.Println(backSymbol16)
-
-		counter++
 	}
 
-	for i := 0; i < len(vec); i += 2 {
-		symb16 := binary.BigEndian.Uint16(vec[i : i+2])
+	for i := int64(0); i < vec.length(); i += 2 {
+		symb16 := binary.BigEndian.Uint16(vec.getSlice(i, i+2))
 		// fmt.Print(symb16, " ")
 		symbCount[symb16]++
 	}
@@ -112,8 +116,10 @@ func getLongestSuffix(query16 []uint16, counts [NUM_SYMBOLS]int64, wt wavelettre
 	// query16 := byteToInt(query)
 	// fmt.Println("query encoded:", query16)
 
-	index := len(query16) - 1
-	currChar := query16[index]
+	query16FlipEnd := changeUint16Endianness(query16)
+
+	index := len(query16FlipEnd) - 1
+	currChar := query16FlipEnd[index]
 	if counts[currChar] == 0 {
 		return 0, 0
 	}
@@ -127,7 +133,7 @@ func getLongestSuffix(query16 []uint16, counts [NUM_SYMBOLS]int64, wt wavelettre
 	index--
 	for count >= uint64(minMatches) && index >= 0 {
 		// character we should look for in the prev position
-		currChar = query16[index]
+		currChar = query16FlipEnd[index]
 
 		// number of this character that we found
 		prevCounts := wt.Rank(start, uint64(currChar))
@@ -155,7 +161,7 @@ func getLongestSuffix(query16 []uint16, counts [NUM_SYMBOLS]int64, wt wavelettre
 	return longestSuffix, pastCount
 }
 
-func makeFMIndex(sa []int64, vec []byte, vocabSize int) *FMIndexModel {
+func makeFMIndex(sa SuffixArrayData, vec TokenArray, vocabSize int) *FMIndexModel {
 	// for rowIdx, idx := range sa {
 	// 	fmt.Print(rowIdx, vec[idx:])
 	// 	if idx > 0 {
@@ -379,8 +385,43 @@ func InitializeFMIndexModel(filename, lineSplit, outpath, tokenizerConfig string
 	}
 
 	fmt.Println("FMIndex not found; creating new one")
+	fmt.Println("WARNING: multiple chunks not implemented yet")
+
+	// check whether suffix arrays already exist
+	saChunkPathsPath := path.Join(outpath, "suffix_array_paths.txt")
+
+	_, err = os.Stat(saChunkPathsPath)
+	if err == nil {
+		fmt.Println("Suffix array(s) already found")
+
+		saChunkPathsStr, err := readStringFromFile(saChunkPathsPath)
+		if err != nil {
+			return nil, err
+		}
+
+		suffixArrayPaths := strings.Split(saChunkPathsStr, "\n")
+		if len(suffixArrayPaths) > 1 {
+			return nil, errors.New("multiple chunks not implemented yet")
+		}
+
+		suffixArray, err := makeMemSA(suffixArrayPaths[0])
+		if err != nil {
+			return nil, err
+		}
+
+		dataBytes, err := loadMMappedArray(dataPath)
+		if err != nil {
+			return nil, err
+		}
+
+		return makeFMIndex(
+			suffixArray,
+			dataBytes,
+			vocabSize,
+		), nil
+	}
+
 	fmt.Println("Creating suffix array")
-	fmt.Println("WARNING: will only use the first chunk; multiple chunks not implemented yet")
 	currChunk := 0
 	chunkBuffer := make([]byte, chunkSize)
 	var fmIndex *FMIndexModel
@@ -390,12 +431,21 @@ func InitializeFMIndexModel(filename, lineSplit, outpath, tokenizerConfig string
 		}
 		fmt.Printf("making chunk %d of size %d\n", currChunk, chunkLength)
 
+		// need to the entire chunk into memory to make the suffix array
 		readValues := chunkBuffer[:chunkLength]
-
-		changeEndianness16(readValues)
 		unalignedSa := createUnalignedSuffixArray(readValues)
 
-		fmIndex = makeFMIndex(unalignedSa, readValues, vocabSize)
+		// but, we can use the mmapped data to create the FMindex
+		dataBytes, err := loadMMappedArray(dataPath)
+		if err != nil {
+			return err
+		}
+
+		fmIndex = makeFMIndex(
+			&MemSA{unalignedSa}, // could instead save to disk and MMap this
+			dataBytes,
+			vocabSize,
+		)
 
 		currChunk += 1
 
