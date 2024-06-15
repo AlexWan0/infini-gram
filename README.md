@@ -4,11 +4,13 @@ This repo contains two (unofficial) implementations of the infini-gram model des
 The tokenizers used here are the [Go bindings to the official Rust library](https://github.com/daulet/tokenizers).
 
 # FM-Index
-This particular branch contains a WIP implementation of the infini-gram model using FM-indices + wavelet trees instead of suffix arrays. FM-indices use significantly less disk space while (hopefully) not sacrificing inference speed.
+This particular branch contains a WIP implementation of the infini-gram model using FM-indices + wavelet trees instead of suffix arrays. FM-indices use significantly less disk space while (hopefully) not tk
 
-On my M1 Macbook Air 2020, each query for the next token distribution takes around ~1.5s regardless of the number of continuations that need to be retrieved and the corpus size. The main bottleneck is that you can only efficiently query for *preceding* tokens given a suffix, so to create the full next token distribution we need to query every vocabulary item. However, just checking for whether an n-gram exists does not run into this issue, and is much faster.
+On my M1 Macbook Air 2020, each query for the next token distribution take from ~80ms to ~900ms depending on the number of vocabulary items that have continuations. The main bottleneck is that you can only efficiently query for *preceding* tokens given a suffix, so to create the full next token distribution we need to query every vocabulary item. To speed this up, I cache whether a 2-gram shows up in the corpus.
 
-The main advantage of the FM-index, though, is that it takes significantly less space: ~500mb for Pile-val, compared ~800mb + ~3gb for the tokenized corpora and suffix array respectively (you don't need to store the tokenized corpora at all using FM-indices).
+However, just checking for whether an n-gram exists does not run into this issue, and is much faster (500-900µs).
+
+The main advantage of the FM-index, though, is that it takes significantly less space: ~500mb + ~500mb Pile-val for the BWT array and cache, compared ~800mb + ~3gb for the tokenized corpora and suffix array (you don't need to store the tokenized corpora at all using FM-indices). Furthermore, cache is just a bit array corresponding to every possible combination of two-grams (i.e., it's constant wrt corpus size). On average, [the storage space should be sublinear wrt the input data.](https://en.wikipedia.org/wiki/FM-index)
 
 Some todos:
 * ~~Current issue: making sure that the retrieved values respect byte boundaries.~~ fixed by using tokens directly instead of bytes; queries take longer though...
