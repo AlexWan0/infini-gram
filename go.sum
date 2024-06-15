@@ -4,6 +4,10 @@ github.com/AlexWan0/go-watrix v0.0.0-20240615072359-ce2f8b38c36b h1:hzbY1N4wwfZS
 github.com/AlexWan0/go-watrix v0.0.0-20240615072359-ce2f8b38c36b/go.mod h1:qTzx7gtPFq30orQQA2738j0STtv8odn2Grx/01fY+gU=
 github.com/AlexWan0/go-watrix v0.0.0-20240615073205-f3916dbbb876 h1:jGBtIsM3JI3LwQkQrJrTZuUGgXp+SHQ6GX4M0NAduX0=
 github.com/AlexWan0/go-watrix v0.0.0-20240615073205-f3916dbbb876/go.mod h1:qTzx7gtPFq30orQQA2738j0STtv8odn2Grx/01fY+gU=
+github.com/AlexWan0/go-watrix v0.0.0-20240615075859-7bcaccf7b95f h1:a3cvtkBBzF/+hAIRVh5U6eknp7+uJDPpRjm3hfpEqA4=
+github.com/AlexWan0/go-watrix v0.0.0-20240615075859-7bcaccf7b95f/go.mod h1:95e9yC3y4qzENfyjQw7YPwII1CIDY3USBjFHzXENZJE=
+github.com/AlexWan0/rsdic-mmap v0.0.0-20240615075700-526de7a4af0f h1:XQbADowEXDuijkeLr5961zRUSEZKz/l2E6RmwEBJNq4=
+github.com/AlexWan0/rsdic-mmap v0.0.0-20240615075700-526de7a4af0f/go.mod h1:alE9XTAnTMlE7BtjVluAfCODe8lkPI6eY453lJRx/r8=
 github.com/Workiva/go-datastructures v1.1.5 h1:5YfhQ4ry7bZc2Mc7R0YZyYwpf5c6t1cEFvdAhd6Mkf4=
 github.com/Workiva/go-datastructures v1.1.5/go.mod h1:1yZL+zfsztete+ePzZz/Zb1/t5BnDuE2Ya2MMGhzP6A=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
