@@ -52,6 +52,14 @@ func TestBasic(t *testing.T) {
 		t.Error(err)
 	}
 
+	// get file size
+	fileInfo, err := os.Stat(testPath)
+	if err != nil {
+		panic(err)
+	}
+	fileSize := fileInfo.Size()
+	t.Log("saved file size:", fileSize)
+
 	cache2, err := LoadBitCache(testPath)
 	if err != nil {
 		t.Error(err)

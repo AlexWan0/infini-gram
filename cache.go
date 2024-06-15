@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	bitarray "github.com/Workiva/go-datastructures/bitarray"
 )
 
@@ -48,8 +46,31 @@ func (bc *BitCache) AddValue(first, second uint16) {
 	}
 }
 
+func copyToBitArray(source, dest bitarray.BitArray) error {
+	for i := uint64(0); i < source.Capacity(); i++ {
+		isSet, err := source.GetBit(i)
+		if err != nil {
+			return err
+		}
+		if isSet {
+			err = dest.SetBit(i)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (bc *BitCache) Save(filepath string) error {
-	cacheBytes, err := bitarray.Marshal(bc.cache)
+	// convert to sparse array first
+	sparseArray := bitarray.NewSparseBitArray()
+	err := copyToBitArray(bc.cache, sparseArray)
+	if err != nil {
+		return err
+	}
+
+	cacheBytes, err := bitarray.Marshal(sparseArray)
 	if err != nil {
 		return err
 	}
@@ -63,18 +84,22 @@ func (bc *BitCache) Save(filepath string) error {
 }
 
 func LoadBitCache(filepath string) (*BitCache, error) {
+	// read the sparse array
 	cacheBytes, err := readBytesFromFile(filepath)
 	if err != nil {
 		return nil, err
 	}
 
-	cache, err := bitarray.Unmarshal(cacheBytes)
+	spraseArray, err := bitarray.Unmarshal(cacheBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	if cache.Capacity() != TWOGRAM_CACHE_SIZE {
-		return nil, fmt.Errorf("expected to load %d bits, got %d", TWOGRAM_CACHE_SIZE, cache.Capacity())
+	// convert to dense array
+	cache := bitarray.NewBitArray(TWOGRAM_CACHE_SIZE)
+	err = copyToBitArray(spraseArray, cache)
+	if err != nil {
+		return nil, err
 	}
 
 	return &BitCache{cache: cache}, nil
