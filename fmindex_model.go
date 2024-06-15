@@ -194,6 +194,8 @@ func (bw *FMIndexModel) GetLongestSuffix(query []uint16) (int, uint64) {
 }
 
 func (bw *FMIndexModel) Save(filepath string) error {
+	fmt.Println("Saving FMIndex to", filepath)
+
 	countsPath := path.Join(filepath, COUNTS_FILENAME)
 	treePath := path.Join(filepath, TREE_FILENAME)
 	cachePath := path.Join(filepath, CACHE_FILENAME)
