@@ -135,9 +135,11 @@ func getLongestSuffix(query16 []uint16, counts [NUM_SYMBOLS]int64, wt wavelettre
 		// character we should look for in the prev position
 		currChar = query16FlipEnd[index]
 
-		// number of this character that we found
-		prevCounts := wt.Rank(start, uint64(currChar))
 		allCounts := wt.Rank(end, uint64(currChar))
+		if allCounts == 0 {
+			break
+		}
+		prevCounts := wt.Rank(start, uint64(currChar))
 		count = allCounts - prevCounts
 
 		// if count > uint64(counts[currChar]) {
