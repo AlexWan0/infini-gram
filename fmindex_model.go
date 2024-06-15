@@ -307,9 +307,6 @@ func checkSuffixWorker(wg *sync.WaitGroup, m *FMIndexModel, minMatches int, quer
 		case <-quit:
 			return
 		default:
-			if !m.cache.HasValue(changeEndUint16(queryIdsCopy[replIdx-1]), changeEndUint16(nextToken)) {
-				continue
-			}
 			queryIdsCopy[replIdx] = nextToken
 			suffixSize, count := getLongestSuffix(queryIdsCopy, m.counts, m.tree, minMatches, m.cache)
 			results <- &SuffixResult{suffixSize, count, nextToken}
@@ -377,8 +374,8 @@ func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, m
 	fmt.Printf("Find longest (n-1)-gram elapsed time: %s\n", elapsed)
 
 	numWorkers := 8
-	nextTokenJobs := make(chan uint16)
-	results := make(chan *SuffixResult)
+	nextTokenJobs := make(chan uint16, numWorkers)
+	results := make(chan *SuffixResult, numWorkers)
 	quitChannel := make(chan bool, numWorkers+1)
 	accumResult := make(chan *AccumResult)
 
@@ -391,12 +388,16 @@ func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, m
 
 	go accumWorker(longestCount, m.vocabSize, effectiveN, results, accumResult, quitChannel, numWorkers)
 
+	lastTokenFlipped := changeEndUint16(newQueryIds[replIdx-1])
 Outer:
 	for nextToken := uint16(0); nextToken < uint16(m.vocabSize); nextToken++ {
 		select {
 		case <-quitChannel:
 			break Outer
 		default:
+			if !m.cache.HasValue(lastTokenFlipped, changeEndUint16(nextToken)) {
+				continue
+			}
 			nextTokenJobs <- nextToken
 		}
 	}
