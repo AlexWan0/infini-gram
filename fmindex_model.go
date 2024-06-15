@@ -36,8 +36,9 @@ type FMIndexModel struct {
 // In the current implementation, we don't even need to convert it back because
 // we only query for the longest suffix size & its count.
 // TODO: stream the result to disk
-func saToBWT(sa SuffixArrayData, vec TokenArray) ([]uint16, [NUM_SYMBOLS]int64, TwoGramCache) {
-	bwtBack := make([]uint16, 0)
+func saToBWT(sa SuffixArrayData, vec TokenArray) (wavelettree.WaveletTree, [NUM_SYMBOLS]int64, TwoGramCache) {
+	builder := wavelettree.NewBuilder()
+
 	symbCount := [NUM_SYMBOLS]int64{}
 
 	cache := NewBitCache()
@@ -71,7 +72,8 @@ func saToBWT(sa SuffixArrayData, vec TokenArray) ([]uint16, [NUM_SYMBOLS]int64, 
 
 		// vec[backIdx : backIdx+2]
 		backSymbol16 := binary.BigEndian.Uint16(backData)
-		bwtBack = append(bwtBack, backSymbol16)
+		builder.PushBack(uint64(backSymbol16))
+
 		// fmt.Println(backSymbol16)
 
 		frontSymbol16 := binary.BigEndian.Uint16(frontData)
@@ -82,17 +84,9 @@ func saToBWT(sa SuffixArrayData, vec TokenArray) ([]uint16, [NUM_SYMBOLS]int64, 
 		bar.Add(1)
 	}
 
-	return bwtBack, symbCount, cache
-}
-
-func makeWaveletTree(vec []uint16) wavelettree.WaveletTree {
-	builder := wavelettree.NewBuilder()
-	for _, v := range vec {
-		builder.PushBack(uint64(v))
-	}
 	wt := builder.Build()
 
-	return wt
+	return wt, symbCount, cache
 }
 
 func saveWaveletTree(wt wavelettree.WaveletTree, filename string) error {
@@ -201,10 +195,7 @@ func makeFMIndex(sa SuffixArrayData, vec TokenArray, vocabSize int) *FMIndexMode
 	// 	}
 	// }
 
-	bwt, counts, cache := saToBWT(sa, vec)
-
-	fmt.Println("Making wavelet tree")
-	wt := makeWaveletTree(bwt)
+	wt, counts, cache := saToBWT(sa, vec)
 	return &FMIndexModel{wt, counts, vocabSize, cache}
 }
 
