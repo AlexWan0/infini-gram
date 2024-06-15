@@ -10,7 +10,7 @@ On my M1 Macbook Air 2020, each query for the next token distribution take from 
 
 However, just checking for whether an n-gram exists does not run into this issue, and is much faster (500-900µs).
 
-The main advantage of the FM-index, though, is that it takes significantly less space: ~500mb + ~90mb on Pile-val for the BWT array and 2-gram cache, compared ~800mb + ~3gb for the tokenized corpora and suffix array (you don't need to store the tokenized corpora at all using FM-indices). Furthermore, the 2-gram cache is just a sparse bit array corresponding to every possible combination of 2-grams (i.e., it's constant wrt corpus size, and will take *no more* than ~500mb). On average, [the storage space should be sublinear wrt the input data.](https://en.wikipedia.org/wiki/FM-index)
+The main advantage of the FM-index, though, is that it takes significantly less space: ~500mb + ~20mb on Pile-val for the BWT array and 2-gram cache, compared ~800mb + ~3gb for the tokenized corpora and suffix array (you don't need to store the tokenized corpora at all using FM-indices). Furthermore, the 2-gram cache is just a sparse bit array corresponding to every possible combination of 2-grams (i.e., it's constant wrt corpus size, and will take *no more* than ~500mb). On average, [the storage space should be sublinear wrt the input data.](https://en.wikipedia.org/wiki/FM-index)
 
 Some todos:
 * ~~Current issue: making sure that the retrieved values respect byte boundaries.~~ fixed by using tokens directly instead of bytes; queries take longer though...

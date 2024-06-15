@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
+	"errors"
+
 	bitarray "github.com/Workiva/go-datastructures/bitarray"
 )
 
@@ -64,18 +68,24 @@ func copyToBitArray(source, dest bitarray.BitArray) error {
 
 func (bc *BitCache) Save(filepath string) error {
 	// convert to sparse array first
-	sparseArray := bitarray.NewSparseBitArray()
-	err := copyToBitArray(bc.cache, sparseArray)
+	// sparseArray := bitarray.NewSparseBitArray()
+	// err := copyToBitArray(bc.cache, sparseArray)
+	// if err != nil {
+	// 	return err
+	// }
+
+	cacheBytes, err := bitarray.Marshal(bc.cache)
 	if err != nil {
 		return err
 	}
 
-	cacheBytes, err := bitarray.Marshal(sparseArray)
-	if err != nil {
-		return err
-	}
+	// compress
+	var b bytes.Buffer
+	w := gzip.NewWriter(&b)
+	w.Write(cacheBytes)
+	w.Close()
 
-	err = writeBytesToFile(filepath, cacheBytes)
+	err = writeBytesToFile(filepath, b.Bytes())
 	if err != nil {
 		return err
 	}
@@ -90,16 +100,31 @@ func LoadBitCache(filepath string) (*BitCache, error) {
 		return nil, err
 	}
 
-	spraseArray, err := bitarray.Unmarshal(cacheBytes)
+	// spraseArray, err := bitarray.Unmarshal(cacheBytes)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// decompress
+	r, err := gzip.NewReader(bytes.NewReader(cacheBytes))
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	var b bytes.Buffer
+	b.ReadFrom(r)
+
+	// convert to dense array
+	// cache := bitarray.NewBitArray(TWOGRAM_CACHE_SIZE)
+	// err = copyToBitArray(spraseArray, cache)
+	cache, err := bitarray.Unmarshal(b.Bytes())
 	if err != nil {
 		return nil, err
 	}
 
-	// convert to dense array
-	cache := bitarray.NewBitArray(TWOGRAM_CACHE_SIZE)
-	err = copyToBitArray(spraseArray, cache)
-	if err != nil {
-		return nil, err
+	if cache.Capacity() != TWOGRAM_CACHE_SIZE {
+		return nil, errors.New("cache size mismatch")
 	}
 
 	return &BitCache{cache: cache}, nil

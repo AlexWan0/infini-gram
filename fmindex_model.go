@@ -349,6 +349,10 @@ func accumWorker(longestCount uint64, vocabSize int, effectiveN int, results <-c
 // include numExtend extra tokens (set to 1 to just get the next token).
 // TODO: Only numExtend = 1 is implemented for now.
 func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, minMatches int) *Prediction {
+	if len(queryIds) == 0 {
+		return &Prediction{[]float32{}, 0, 0, 1, [][]int{}}
+	}
+
 	// timing
 	start := time.Now()
 
