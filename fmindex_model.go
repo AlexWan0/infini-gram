@@ -24,7 +24,7 @@ const (
 
 type FMIndexModel struct {
 	tree      wavelettree.WaveletTree
-	counts    [NUM_SYMBOLS]int64
+	counts    *[NUM_SYMBOLS]int64
 	vocabSize int
 	cache     TwoGramCache
 }
@@ -36,7 +36,7 @@ type FMIndexModel struct {
 // In the current implementation, we don't even need to convert it back because
 // we only query for the longest suffix size & its count.
 // TODO: stream the result to disk
-func saToBWT(sa SuffixArrayData, vec TokenArray) (wavelettree.WaveletTree, [NUM_SYMBOLS]int64, TwoGramCache) {
+func saToBWT(sa SuffixArrayData, vec TokenArray) (wavelettree.WaveletTree, *[NUM_SYMBOLS]int64, TwoGramCache) {
 	builder := wavelettree.NewBuilder()
 
 	symbCount := [NUM_SYMBOLS]int64{}
@@ -87,7 +87,7 @@ func saToBWT(sa SuffixArrayData, vec TokenArray) (wavelettree.WaveletTree, [NUM_
 	fmt.Println("Building wavelet tree")
 	wt := builder.Build()
 
-	return wt, symbCount, cache
+	return wt, &symbCount, cache
 }
 
 func saveWaveletTree(wt wavelettree.WaveletTree, filename string) error {
@@ -109,7 +109,7 @@ func loadWaveletTree(filename string) (wavelettree.WaveletTree, error) {
 	return wt, nil
 }
 
-func getLongestSuffix(query16 []uint16, counts [NUM_SYMBOLS]int64, wt wavelettree.WaveletTree, minMatches int, cache TwoGramCache) (int, uint64) {
+func getLongestSuffix(query16 []uint16, counts *[NUM_SYMBOLS]int64, wt wavelettree.WaveletTree, minMatches int, cache TwoGramCache) (int, uint64) {
 	countPrefixSum := make([]uint64, NUM_SYMBOLS) // number of symbols before i
 	for i := 1; i < NUM_SYMBOLS; i++ {
 		countPrefixSum[i] = countPrefixSum[i-1] + uint64(counts[i-1])
@@ -274,7 +274,7 @@ func loadFMIndex(filepath string, vocabSize int) (*FMIndexModel, error) {
 		return nil, err
 	}
 
-	return &FMIndexModel{wt, counts, vocabSize, cache}, nil
+	return &FMIndexModel{wt, &counts, vocabSize, cache}, nil
 }
 
 type SuffixResult struct {
