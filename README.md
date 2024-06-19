@@ -6,7 +6,7 @@ The tokenizers used here are the [Go bindings to the official Rust library](http
 # FM-Index
 This particular branch contains a WIP implementation of the infini-gram model using FM-indices + wavelet trees instead of suffix arrays. FM-indices use significantly less disk space while (hopefully) not not sacrificing inference speed.
 
-On my M1 Macbook Air 2020, each query for the next token distribution take from ~80ms to ~900ms depending on the number of vocabulary items that have continuations. The main bottleneck is that you can only efficiently query for *preceding* tokens given a suffix, so to create the full next token distribution we need to query every vocabulary item. To speed this up, I cache whether a 2-gram shows up in the corpus.
+On my M1 Macbook Air 2020, each query for the next token distribution take from ~10ms to ~70ms depending on the number of vocabulary items that have continuations. The main bottleneck is that you can only efficiently query for *preceding* tokens given a suffix, so to create the full next token distribution we need to query every vocabulary item. To speed this up, I cache whether a 2-gram shows up in the corpus.
 
 However, just checking for whether an n-gram exists does not run into this issue, and is much faster (500-900µs).
 

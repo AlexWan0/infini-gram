@@ -109,7 +109,7 @@ func TestStruct(t *testing.T) {
 	memSA := &MemSA{data: sa}
 	fmindex := makeFMIndex(memSA, memVec, vocabSize)
 
-	fmt.Println(getLongestSuffix(enc, fmindex.counts, fmindex.tree, 1, fmindex.cache))
+	fmt.Println(getLongestSuffix(enc, fmindex.counts, fmindex.getPrefixSum(), fmindex.tree, 1, fmindex.cache))
 
 	// save and load
 	// fmindex.Save(basePath)

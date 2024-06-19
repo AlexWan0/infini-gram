@@ -109,12 +109,7 @@ func loadWaveletTree(filename string) (wavelettree.WaveletTree, error) {
 	return wt, nil
 }
 
-func getLongestSuffix(query16 []uint16, counts *[NUM_SYMBOLS]int64, wt wavelettree.WaveletTree, minMatches int, cache TwoGramCache) (int, uint64) {
-	countPrefixSum := make([]uint64, NUM_SYMBOLS) // number of symbols before i
-	for i := 1; i < NUM_SYMBOLS; i++ {
-		countPrefixSum[i] = countPrefixSum[i-1] + uint64(counts[i-1])
-	}
-
+func getLongestSuffix(query16 []uint16, counts *[NUM_SYMBOLS]int64, countPrefixSum *[NUM_SYMBOLS]uint64, wt wavelettree.WaveletTree, minMatches int, cache TwoGramCache) (int, uint64) {
 	// fmt.Println("symbol prefix sum", countPrefixSum)
 
 	// query16 := byteToInt(query)
@@ -190,8 +185,16 @@ func makeFMIndex(sa SuffixArrayData, vec TokenArray, vocabSize int) *FMIndexMode
 	return &FMIndexModel{wt, counts, vocabSize, cache}
 }
 
+func (bw *FMIndexModel) getPrefixSum() *[NUM_SYMBOLS]uint64 {
+	var countPrefixSum [NUM_SYMBOLS]uint64
+	for i := 1; i < NUM_SYMBOLS; i++ {
+		countPrefixSum[i] = countPrefixSum[i-1] + uint64(bw.counts[i-1])
+	}
+	return &countPrefixSum
+}
+
 func (bw *FMIndexModel) GetLongestSuffix(query []uint16) (int, uint64) {
-	return getLongestSuffix(query, bw.counts, bw.tree, 1, bw.cache)
+	return getLongestSuffix(query, bw.counts, bw.getPrefixSum(), bw.tree, 1, bw.cache)
 }
 
 func (bw *FMIndexModel) Save(filepath string) error {
@@ -283,7 +286,7 @@ type SuffixResult struct {
 	nextToken  uint16
 }
 
-func checkSuffixWorker(wg *sync.WaitGroup, m *FMIndexModel, minMatches int, queryIds []uint16, replIdx int, nextTokenJobs <-chan uint16, results chan<- *SuffixResult, quit <-chan bool) {
+func checkSuffixWorker(wg *sync.WaitGroup, m *FMIndexModel, countPrefixSum *[NUM_SYMBOLS]uint64, minMatches int, queryIds []uint16, replIdx int, nextTokenJobs <-chan uint16, results chan<- *SuffixResult, quit <-chan bool) {
 	defer wg.Done()
 
 	queryIdsCopy := make([]uint16, len(queryIds))
@@ -294,7 +297,7 @@ func checkSuffixWorker(wg *sync.WaitGroup, m *FMIndexModel, minMatches int, quer
 			return
 		default:
 			queryIdsCopy[replIdx] = nextToken
-			suffixSize, count := getLongestSuffix(queryIdsCopy, m.counts, m.tree, minMatches, m.cache)
+			suffixSize, count := getLongestSuffix(queryIdsCopy, m.counts, countPrefixSum, m.tree, minMatches, m.cache)
 			results <- &SuffixResult{suffixSize, count, nextToken}
 		}
 	}
@@ -356,7 +359,9 @@ func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, m
 	}
 	replIdx := len(queryIds)
 
-	effectiveN, longestCount := getLongestSuffix(newQueryIds[:replIdx], m.counts, m.tree, minMatches, m.cache)
+	countPrefixSum := m.getPrefixSum()
+
+	effectiveN, longestCount := getLongestSuffix(newQueryIds[:replIdx], m.counts, countPrefixSum, m.tree, minMatches, m.cache)
 	fmt.Printf("longest suffix size=%d, count=%d\n", effectiveN, longestCount)
 
 	// timing
@@ -373,7 +378,7 @@ func (m *FMIndexModel) NextTokenDistribution(queryIds []uint32, numExtend int, m
 
 	for w := 0; w < numWorkers; w++ {
 		wgWorkers.Add(1)
-		go checkSuffixWorker(wgWorkers, m, minMatches, newQueryIds, replIdx, nextTokenJobs, results, quitChannel)
+		go checkSuffixWorker(wgWorkers, m, countPrefixSum, minMatches, newQueryIds, replIdx, nextTokenJobs, results, quitChannel)
 	}
 
 	go accumWorker(longestCount, m.vocabSize, effectiveN, results, accumResult, quitChannel, numWorkers)
